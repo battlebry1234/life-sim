@@ -2,34 +2,38 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Human Evolution Simulator</title>
+<title>Human Evolution – 10 Years per Minute</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#06080c;color:#e2e8f0;font-family:system-ui,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
-  #bar{background:#0f1218;padding:10px 18px;display:flex;gap:24px;align-items:center;border-bottom:1px solid #1c2230;z-index:20}
-  .year{font-size:24px;font-weight:700;color:#60a5fa;min-width:190px}
+  body{background:#05070b;color:#e2e8f0;font-family:system-ui,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+  #bar{background:#0c0f15;padding:11px 18px;display:flex;gap:22px;align-items:center;border-bottom:1px solid #1a2030;z-index:20}
+  .year{font-size:24px;font-weight:700;color:#60a5fa;min-width:200px}
   .s{font-size:13px;color:#94a3b8}.s b{color:#f1f5f9;font-size:15px}
-  canvas{flex:1;display:block;background:radial-gradient(ellipse at center,#0c1017 0%,#06080c 70%)}
-  #side{position:absolute;top:62px;left:14px;width:230px;background:rgba(15,18,24,.93);border:1px solid #1e2533;border-radius:12px;padding:14px;backdrop-filter:blur(8px)}
+  canvas{flex:1;display:block;background:radial-gradient(ellipse at center,#0b0e14 0%,#05070b 70%)}
+  #side{position:absolute;top:64px;left:14px;width:220px;background:rgba(12,15,21,.94);border:1px solid #1c2433;border-radius:12px;padding:14px;backdrop-filter:blur(8px)}
   .lbl{font-size:11px;color:#64748b;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
-  .bar{height:8px;background:#1e2533;border-radius:4px;overflow:hidden;margin-bottom:12px}
-  .fill{height:100%;border-radius:4px;transition:width .5s}
+  .bar{height:8px;background:#1c2433;border-radius:4px;overflow:hidden;margin-bottom:12px}
+  .fill{height:100%;border-radius:4px;transition:width .4s}
   .t{background:linear-gradient(90deg,#60a5fa,#34d399)}.h{background:#fbbf24}.w{background:#f87171}
-  #start{position:absolute;inset:0;background:#06080c;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50}
-  #start h1{font-size:38px;margin-bottom:8px;background:linear-gradient(90deg,#60a5fa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-  #start p{color:#94a3b8;text-align:center;max-width:360px;margin-bottom:32px;line-height:1.5}
-  #go{background:#60a5fa;color:#fff;border:none;padding:14px 40px;font-size:16px;border-radius:10px;cursor:pointer;font-weight:600}
+  #start{position:absolute;inset:0;background:#05070b;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50}
+  #start h1{font-size:36px;margin-bottom:8px;background:linear-gradient(90deg,#60a5fa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  #start p{color:#94a3b8;text-align:center;max-width:340px;margin-bottom:28px;line-height:1.5}
+  #go{background:#60a5fa;color:#fff;border:none;padding:14px 38px;font-size:16px;border-radius:10px;cursor:pointer;font-weight:600}
   #go:hover{background:#3b82f6}
-  .leg{position:absolute;bottom:16px;right:16px;background:rgba(15,18,24,.9);padding:10px 12px;border-radius:8px;font-size:12px;border:1px solid #1e2533}
+  .leg{position:absolute;bottom:14px;right:14px;background:rgba(12,15,21,.9);padding:10px 12px;border-radius:8px;font-size:12px;border:1px solid #1c2433}
   .d{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
-  #flash{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:20px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .35s;text-shadow:0 0 18px #000}
+  #flash{position:absolute;top:48%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .4s;text-shadow:0 0 20px #000}
+  #phase{position:absolute;top:70px;right:18px;background:rgba(12,15,21,.9);padding:8px 14px;border-radius:8px;font-size:13px;border:1px solid #1c2433}
 </style>
 </head>
 <body>
+
 <div id="start">
   <h1>Human Evolution</h1>
-  <p>People move, marry, have sex, make babies, build houses and invent technology — from after the dinosaurs to the future.</p>
-  <button id="go">Start</button>
+  <p>From after the dinosaurs to the future.<br>
+  Time runs at <b>10 years per real minute</b> once humans appear.<br>
+  People will spawn, marry, have sex and make babies.</p>
+  <button id="go">Start Simulation</button>
 </div>
 
 <div id="bar">
@@ -51,6 +55,8 @@
   <div style="font-size:13px;color:#94a3b8;margin-top:3px">Era: <span id="era" style="color:#34d399">Post-Dinosaur</span></div>
 </div>
 
+<div id="phase">Fast-forwarding deep time…</div>
+
 <div class="leg">
   <div><span class="d" style="background:#60a5fa"></span>Male</div>
   <div><span class="d" style="background:#f472b6"></span>Female</div>
@@ -63,214 +69,232 @@
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 let W, H;
-function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight-52}
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight-54}
 addEventListener('resize',resize);resize();
 
-let year=-65000000, agents=[], nextId=0, tech=0, houses=0, weapons=0;
-let politics="None", babies=0, sexCount=0, running=false;
+let year = -65000000;
+let agents = [];
+let nextId = 0;
+let tech = 0, houses = 0, weapons = 0;
+let politics = "None";
+let babies = 0, sexCount = 0;
+let running = false;
+let humanMode = false;          // true = real 10 years / minute
+let lastRealTime = 0;
 
-class Agent{
-  constructor(birth, parents=null){
-    this.id=nextId++;
-    this.birth=birth;
-    this.sex=Math.random()<0.5?'M':'F';
-    this.x=Math.random()*W;
-    this.y=50+Math.random()*(H-70);
-    this.vx=(Math.random()-0.5)*0.7;
-    this.vy=(Math.random()-0.5)*0.7;
-    this.r=6;
-    this.married=null;
-    this.baby=false;
-    this.timer=0;
-    this.intel=parents?(parents[0].intel+parents[1].intel)/2+(Math.random()-0.5)*7:10+Math.random()*16;
-    this.health=60+Math.random()*30;
-    if(parents){
-      this.baby=true;this.timer=150;this.r=4;
-      this.x=parents[0].x+(Math.random()-0.5)*50;
-      this.y=parents[0].y+(Math.random()-0.5)*50;
+class Agent {
+  constructor(birth, parents = null) {
+    this.id = nextId++;
+    this.birth = birth;
+    this.sex = Math.random() < 0.5 ? 'M' : 'F';
+    this.x = Math.random() * W;
+    this.y = 55 + Math.random() * (H - 80);
+    this.vx = (Math.random() - 0.5) * 0.8;
+    this.vy = (Math.random() - 0.5) * 0.8;
+    this.r = 6;
+    this.married = null;
+    this.isBaby = false;
+    this.timer = 0;
+    this.intel = parents ? (parents[0].intel + parents[1].intel)/2 + (Math.random()-0.5)*8 : 11 + Math.random()*15;
+    if (parents) {
+      this.isBaby = true;
+      this.timer = 180;
+      this.r = 4;
+      this.x = parents[0].x + (Math.random()-0.5)*60;
+      this.y = parents[0].y + (Math.random()-0.5)*60;
     }
   }
-  age(){return year-this.birth}
+  age(){ return year - this.birth; }
   update(){
-    this.x+=this.vx;this.y+=this.vy;
-    if(this.x<10){this.x=10;this.vx*=-1}
-    if(this.x>W-10){this.x=W-10;this.vx*=-1}
-    if(this.y<45){this.y=45;this.vy*=-1}
-    if(this.y>H-10){this.y=H-10;this.vy*=-1}
-    this.vx+=(W/2-this.x)*0.00003;
-    this.vy+=(H/2-this.y)*0.00003;
-    this.vx*=0.994;this.vy*=0.994;
+    this.x += this.vx; this.y += this.vy;
+    if(this.x < 12){this.x=12;this.vx*=-1}
+    if(this.x > W-12){this.x=W-12;this.vx*=-1}
+    if(this.y < 50){this.y=50;this.vy*=-1}
+    if(this.y > H-12){this.y=H-12;this.vy*=-1}
+    this.vx += (W/2 - this.x)*0.00004;
+    this.vy += (H/2 - this.y)*0.00004;
+    this.vx *= 0.993; this.vy *= 0.993;
     if(this.married){
-      const p=agents.find(a=>a.id===this.married);
-      if(p){this.vx+=(p.x-this.x)*0.002;this.vy+=(p.y-this.y)*0.002}
+      const p = agents.find(a => a.id === this.married);
+      if(p){ this.vx += (p.x-this.x)*0.0022; this.vy += (p.y-this.y)*0.0022; }
     }
-    if(this.baby){this.timer--;if(this.timer<=0){this.baby=false;this.r=6}}
+    if(this.isBaby){ this.timer--; if(this.timer<=0){this.isBaby=false;this.r=6;} }
   }
   draw(){
-    ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
-    if(this.baby){ctx.fillStyle='#fbbf24';ctx.shadowColor='#fbbf24';ctx.shadowBlur=14}
-    else if(this.married)ctx.fillStyle='#34d399';
-    else ctx.fillStyle=this.sex==='M'?'#60a5fa':'#f472b6';
-    ctx.fill();ctx.shadowBlur=0;
+    ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+    if(this.isBaby){ ctx.fillStyle='#fbbf24'; ctx.shadowColor='#fbbf24'; ctx.shadowBlur=16; }
+    else if(this.married) ctx.fillStyle='#34d399';
+    else ctx.fillStyle = this.sex==='M' ? '#60a5fa' : '#f472b6';
+    ctx.fill(); ctx.shadowBlur=0;
   }
 }
 
-function flash(t,c='#fff'){
-  const e=document.getElementById('flash');
-  e.textContent=t;e.style.color=c;e.style.opacity=1;
-  setTimeout(()=>e.style.opacity=0,800);
+function flash(txt, col='#fff'){
+  const el = document.getElementById('flash');
+  el.textContent = txt; el.style.color = col; el.style.opacity = '1';
+  setTimeout(()=> el.style.opacity='0', 900);
 }
 
 function init(){
-  agents=[];
-  for(let i=0;i<70;i++) agents.push(new Agent(year-Math.floor(Math.random()*25)));
+  agents = [];
+  for(let i=0;i<80;i++) agents.push(new Agent(year - Math.floor(Math.random()*20)));
 }
 
-function step(){
-  // SLOW time progression
-  let jump;
-  if(year < -5000000)      jump = 8000;
-  else if(year < -500000)  jump = 2500;
-  else if(year < -50000)   jump = 600;
-  else if(year < -5000)    jump = 120;
-  else if(year < 0)        jump = 40;
-  else if(year < 1000)     jump = 15;
-  else if(year < 1800)     jump = 8;
-  else                     jump = 4;
-
-  year += jump;
-  if(year>2500) year=2500;
-
-  // death (gentler)
+function doEvents(){
+  // gentle death
   agents = agents.filter(a=>{
-    const age=a.age();
-    let ch=0.0008+Math.pow(age/100,3)*0.07;
-    ch*=Math.max(0.35,1.05-tech*0.035);
-    if(Math.random()<ch||age>110){
-      if(a.married){const p=agents.find(x=>x.id===a.married);if(p)p.married=null}
+    const age = a.age();
+    let ch = 0.0007 + Math.pow(age/105,3)*0.06;
+    ch *= Math.max(0.3, 1.1 - tech*0.04);
+    if(Math.random()<ch || age>112){
+      if(a.married){ const p=agents.find(x=>x.id===a.married); if(p) p.married=null; }
       return false;
     }
     return true;
   });
 
-  // MARRIAGES – much more frequent
-  const single=agents.filter(a=>!a.married&&a.age()>=15&&a.age()<=55);
-  const males=single.filter(a=>a.sex==='M');
-  const females=single.filter(a=>a.sex==='F');
+  // marriages – frequent
+  const single = agents.filter(a => !a.married && a.age()>=15 && a.age()<=56);
+  const males = single.filter(a=>a.sex==='M');
+  const females = single.filter(a=>a.sex==='F');
   for(const m of males){
-    if(!females.length)break;
-    if(Math.random()<0.09){                 // high chance
-      const f=females.splice(Math.floor(Math.random()*females.length),1)[0];
-      m.married=f.id;f.married=m.id;
-      m.vx+=(f.x-m.x)*0.04;m.vy+=(f.y-m.y)*0.04;
+    if(!females.length) break;
+    if(Math.random() < 0.11){
+      const f = females.splice(Math.floor(Math.random()*females.length),1)[0];
+      m.married = f.id; f.married = m.id;
     }
   }
 
-  // SEX + BABIES – happens a lot
+  // SEX + BABIES – high rate so you actually see them spawn
   for(const a of agents){
-    if(a.sex!=='F'||!a.married)continue;
-    const p=agents.find(x=>x.id===a.married);
-    if(!p)continue;
-    const age=a.age();
-    if(age<16||age>46)continue;
+    if(a.sex!=='F' || !a.married) continue;
+    const p = agents.find(x=>x.id===a.married);
+    if(!p) continue;
+    const age = a.age();
+    if(age<16 || age>47) continue;
 
-    if(Math.random()<0.13){                 // sex often
+    if(Math.random() < 0.16){               // sex often
       sexCount++;
-      if(Math.random()<0.28 && agents.length<420){  // high birth chance
-        const b=new Agent(year,[a,p]);
-        agents.push(b);
+      if(Math.random() < 0.32 && agents.length < 450){  // strong birth chance
+        const baby = new Agent(year, [a,p]);
+        agents.push(baby);
         babies++;
-        if(Math.random()<0.4)flash('Baby born!','#fbbf24');
+        if(Math.random()<0.45) flash('Baby!', '#fbbf24');
       }
     }
   }
 
-  // some casual sex among loners
-  const lonely=agents.filter(a=>!a.married&&a.age()>=17&&a.age()<=50);
-  if(lonely.length>3&&Math.random()<0.06){
-    const a1=lonely[Math.floor(Math.random()*lonely.length)];
-    let a2=lonely[Math.floor(Math.random()*lonely.length)];
-    if(a1!==a2&&a1.sex!==a2.sex){
+  // casual loner sex
+  const lonely = agents.filter(a=>!a.married && a.age()>=17 && a.age()<=50);
+  if(lonely.length>4 && Math.random()<0.07){
+    const a1 = lonely[Math.floor(Math.random()*lonely.length)];
+    let a2 = lonely[Math.floor(Math.random()*lonely.length)];
+    if(a1!==a2 && a1.sex!==a2.sex){
       sexCount++;
-      if(Math.random()<0.12&&agents.length<400){
+      if(Math.random()<0.15 && agents.length<430){
         agents.push(new Agent(year,[a1,a2]));
         babies++;
       }
     }
   }
 
-  // technology grows steadily
-  const avg=agents.reduce((s,a)=>s+a.intel,0)/(agents.length||1);
-  tech+= (avg/65)*Math.log10(agents.length+5)*0.0038;
-  tech=Math.min(14,tech);
+  // tech growth
+  const avg = agents.reduce((s,a)=>s+a.intel,0)/(agents.length||1);
+  tech += (avg/60) * Math.log10(agents.length+6) * 0.004;
+  tech = Math.min(14, tech);
 
-  if(tech>1.0) houses=Math.min(100,houses+0.18);
-  if(tech>1.8) weapons=Math.min(100,weapons+0.14);
-  if(tech>4)   houses=Math.min(100,houses+0.3);
-  if(tech>6)   weapons=Math.min(100,weapons+0.22);
+  if(tech>1.1) houses = Math.min(100, houses+0.2);
+  if(tech>2.0) weapons = Math.min(100, weapons+0.16);
+  if(tech>4.5) houses = Math.min(100, houses+0.35);
+  if(tech>6.5) weapons = Math.min(100, weapons+0.25);
 
-  if(tech<2.2) politics="Bands";
-  else if(tech<4.2) politics="Tribes";
+  if(tech<2.3) politics="Bands";
+  else if(tech<4.3) politics="Tribes";
   else if(tech<6.5) politics="Kingdoms";
   else if(tech<9) politics="Nations";
   else if(tech<11.5) politics="Modern States";
-  else politics="AI / Global era";
+  else politics="AI / Global";
 
-  if(agents.length>400) agents=agents.slice(0,380);
+  if(agents.length>460) agents = agents.slice(0,430);
+}
+
+function updateUI(){
+  document.getElementById('year').textContent = 'Year ' + Math.floor(year).toLocaleString();
+  document.getElementById('pop').textContent = agents.length;
+  document.getElementById('mar').textContent = Math.floor(agents.filter(a=>a.married).length/2);
+  document.getElementById('lon').textContent = agents.filter(a=>!a.married && a.age()>28).length;
+  document.getElementById('bab').textContent = babies;
+  document.getElementById('sex').textContent = sexCount;
+  document.getElementById('tb').style.width = (tech/14*100)+'%';
+  document.getElementById('hb').style.width = houses+'%';
+  document.getElementById('wb').style.width = weapons+'%';
+  document.getElementById('pol').textContent = politics;
+
+  let e = "Post-Dinosaur";
+  if(year>-2000000) e="Early Mammals";
+  if(year>-300000) e="Early Humans";
+  if(year>-10000) e="Agriculture";
+  if(year>0) e="Civilizations";
+  if(year>1700) e="Industrial";
+  if(year>1950) e="Modern";
+  if(year>2080) e="Future";
+  document.getElementById('era').textContent = e;
 }
 
 function draw(){
   ctx.clearRect(0,0,W,H);
-  // married lines
-  ctx.strokeStyle='rgba(52,211,153,0.2)';
-  ctx.lineWidth=1.1;
+  ctx.strokeStyle='rgba(52,211,153,0.18)';
+  ctx.lineWidth=1.2;
   for(const a of agents){
-    if(a.married&&a.sex==='M'){
+    if(a.married && a.sex==='M'){
       const p=agents.find(x=>x.id===a.married);
-      if(p){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(p.x,p.y);ctx.stroke()}
+      if(p){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(p.x,p.y);ctx.stroke();}
     }
   }
-  for(const a of agents){a.update();a.draw()}
+  for(const a of agents){ a.update(); a.draw(); }
 }
 
-function ui(){
-  document.getElementById('year').textContent='Year '+Math.floor(year).toLocaleString();
-  document.getElementById('pop').textContent=agents.length;
-  document.getElementById('mar').textContent=Math.floor(agents.filter(a=>a.married).length/2);
-  document.getElementById('lon').textContent=agents.filter(a=>!a.married&&a.age()>28).length;
-  document.getElementById('bab').textContent=babies;
-  document.getElementById('sex').textContent=sexCount;
-  document.getElementById('tb').style.width=(tech/14*100)+'%';
-  document.getElementById('hb').style.width=houses+'%';
-  document.getElementById('wb').style.width=weapons+'%';
-  document.getElementById('pol').textContent=politics;
+function loop(timestamp){
+  if(!running){ requestAnimationFrame(loop); return; }
 
-  let e="Post-Dinosaur";
-  if(year>-2000000)e="Early Mammals";
-  if(year>-300000)e="Early Humans";
-  if(year>-10000)e="Agriculture";
-  if(year>0)e="Civilizations";
-  if(year>1700)e="Industrial";
-  if(year>1950)e="Modern";
-  if(year>2080)e="Future";
-  document.getElementById('era').textContent=e;
-}
+  if(!humanMode){
+    // Fast-forward deep time until humans
+    if(year < -300000){
+      year += 120000;
+      doEvents();
+      document.getElementById('phase').textContent = 'Fast-forwarding deep time…';
+    } else {
+      humanMode = true;
+      lastRealTime = performance.now();
+      document.getElementById('phase').textContent = 'Real-time: 10 years / minute';
+      flash('Humans have arrived!', '#34d399');
+    }
+  } else {
+    // REAL 10 YEARS PER MINUTE
+    const now = performance.now();
+    const elapsedMs = now - lastRealTime;
+    const yearsToAdd = (elapsedMs / 60000) * 10;   // exactly 10 years per minute
+    year += yearsToAdd;
+    lastRealTime = now;
 
-function loop(){
-  if(running){
-    step();
-    ui();
+    // run events every frame so spawning feels continuous
+    doEvents();
   }
+
+  if(year > 2500) year = 2500;
+
+  updateUI();
   draw();
   requestAnimationFrame(loop);
 }
 
-document.getElementById('go').onclick=()=>{
+document.getElementById('go').onclick = ()=>{
   document.getElementById('start').style.display='none';
   init();
-  running=true;
+  running = true;
+  lastRealTime = performance.now();
+  requestAnimationFrame(loop);
 };
-loop();
 </script>
 </body>
 </html>

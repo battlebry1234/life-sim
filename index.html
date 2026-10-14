@@ -2,512 +2,274 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Human Evolution – Visual Simulator</title>
+<title>Human Evolution Simulator</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #07090e;
-    color: #e0e6f0;
-    font-family: system-ui, -apple-system, sans-serif;
-    overflow: hidden;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-  #topBar {
-    background: #10131a;
-    padding: 10px 20px;
-    display: flex;
-    align-items: center;
-    gap: 28px;
-    border-bottom: 1px solid #1c2230;
-    z-index: 20;
-  }
-  .year {
-    font-size: 26px;
-    font-weight: 700;
-    color: #5b9cff;
-    min-width: 200px;
-  }
-  .stat {
-    font-size: 13px;
-    color: #8b93a7;
-  }
-  .stat b {
-    color: #e0e6f0;
-    font-size: 15px;
-  }
-  #canvas {
-    flex: 1;
-    display: block;
-    background: radial-gradient(ellipse at center, #0e1219 0%, #07090e 70%);
-  }
-  #side {
-    position: absolute;
-    top: 70px;
-    left: 16px;
-    width: 240px;
-    background: rgba(16,19,26,0.92);
-    border: 1px solid #252b3a;
-    border-radius: 12px;
-    padding: 16px;
-    backdrop-filter: blur(10px);
-  }
-  .label {
-    font-size: 11px;
-    color: #7a8499;
-    margin-bottom: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  .bar {
-    height: 9px;
-    background: #1c2230;
-    border-radius: 5px;
-    overflow: hidden;
-    margin-bottom: 14px;
-  }
-  .fill {
-    height: 100%;
-    border-radius: 5px;
-    transition: width 0.6s ease;
-  }
-  .tech   { background: linear-gradient(90deg,#5b9cff,#3dd68c); }
-  .houses { background: #ffb347; }
-  .weapons{ background: #ff6b6b; }
-
-  #startScreen {
-    position: absolute;
-    inset: 0;
-    background: #07090e;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-  }
-  #startScreen h1 {
-    font-size: 40px;
-    margin-bottom: 10px;
-    background: linear-gradient(90deg,#5b9cff,#3dd68c);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  #startScreen p {
-    color: #8b93a7;
-    text-align: center;
-    max-width: 380px;
-    margin-bottom: 36px;
-    line-height: 1.5;
-  }
-  #startBtn {
-    background: #5b9cff;
-    color: white;
-    border: none;
-    padding: 15px 44px;
-    font-size: 17px;
-    border-radius: 11px;
-    cursor: pointer;
-    font-weight: 600;
-  }
-  #startBtn:hover { background: #4a8bef; }
-
-  .legend {
-    position: absolute;
-    bottom: 18px;
-    right: 18px;
-    background: rgba(16,19,26,0.9);
-    padding: 12px 14px;
-    border-radius: 10px;
-    font-size: 12px;
-    border: 1px solid #252b3a;
-  }
-  .dot {
-    display: inline-block;
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    margin-right: 6px;
-  }
-  #eventFlash {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%,-50%);
-    font-size: 22px;
-    font-weight: 600;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s;
-    text-shadow: 0 0 20px rgba(0,0,0,0.8);
-  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#06080c;color:#e2e8f0;font-family:system-ui,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
+  #bar{background:#0f1218;padding:10px 18px;display:flex;gap:24px;align-items:center;border-bottom:1px solid #1c2230;z-index:20}
+  .year{font-size:24px;font-weight:700;color:#60a5fa;min-width:190px}
+  .s{font-size:13px;color:#94a3b8}.s b{color:#f1f5f9;font-size:15px}
+  canvas{flex:1;display:block;background:radial-gradient(ellipse at center,#0c1017 0%,#06080c 70%)}
+  #side{position:absolute;top:62px;left:14px;width:230px;background:rgba(15,18,24,.93);border:1px solid #1e2533;border-radius:12px;padding:14px;backdrop-filter:blur(8px)}
+  .lbl{font-size:11px;color:#64748b;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
+  .bar{height:8px;background:#1e2533;border-radius:4px;overflow:hidden;margin-bottom:12px}
+  .fill{height:100%;border-radius:4px;transition:width .5s}
+  .t{background:linear-gradient(90deg,#60a5fa,#34d399)}.h{background:#fbbf24}.w{background:#f87171}
+  #start{position:absolute;inset:0;background:#06080c;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50}
+  #start h1{font-size:38px;margin-bottom:8px;background:linear-gradient(90deg,#60a5fa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  #start p{color:#94a3b8;text-align:center;max-width:360px;margin-bottom:32px;line-height:1.5}
+  #go{background:#60a5fa;color:#fff;border:none;padding:14px 40px;font-size:16px;border-radius:10px;cursor:pointer;font-weight:600}
+  #go:hover{background:#3b82f6}
+  .leg{position:absolute;bottom:16px;right:16px;background:rgba(15,18,24,.9);padding:10px 12px;border-radius:8px;font-size:12px;border:1px solid #1e2533}
+  .d{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+  #flash{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:20px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .35s;text-shadow:0 0 18px #000}
 </style>
 </head>
 <body>
-
-<div id="startScreen">
+<div id="start">
   <h1>Human Evolution</h1>
-  <p>Watch people move, pair up, have sex, make babies, build houses, invent weapons and form politics — from the age of dinosaurs to the future.</p>
-  <button id="startBtn">Start Watching</button>
+  <p>People move, marry, have sex, make babies, build houses and invent technology — from after the dinosaurs to the future.</p>
+  <button id="go">Start</button>
 </div>
 
-<div id="topBar">
+<div id="bar">
   <div class="year" id="year">Year −65,000,000</div>
-  <div class="stat">People <b id="pop">0</b></div>
-  <div class="stat">Married <b id="married">0</b></div>
-  <div class="stat">Loners <b id="loners">0</b></div>
-  <div class="stat">Babies <b id="babies">0</b></div>
-  <div class="stat">Sex events <b id="sex">0</b></div>
+  <div class="s">People <b id="pop">0</b></div>
+  <div class="s">Married <b id="mar">0</b></div>
+  <div class="s">Loners <b id="lon">0</b></div>
+  <div class="s">Babies <b id="bab">0</b></div>
+  <div class="s">Sex <b id="sex">0</b></div>
 </div>
 
-<canvas id="canvas"></canvas>
+<canvas id="c"></canvas>
 
 <div id="side">
-  <div class="label">Technology</div>
-  <div class="bar"><div class="fill tech" id="techBar" style="width:0%"></div></div>
-  <div class="label">Houses</div>
-  <div class="bar"><div class="fill houses" id="houseBar" style="width:0%"></div></div>
-  <div class="label">Weapons</div>
-  <div class="bar"><div class="fill weapons" id="weaponBar" style="width:0%"></div></div>
-  <div style="margin-top:8px;font-size:13px;color:#8b93a7">
-    Politics: <span id="politics" style="color:#e0e6f0">None</span>
-  </div>
-  <div style="margin-top:4px;font-size:13px;color:#8b93a7">
-    Era: <span id="era" style="color:#3dd68c">Post-Dinosaur</span>
-  </div>
+  <div class="lbl">Technology</div><div class="bar"><div class="fill t" id="tb" style="width:0%"></div></div>
+  <div class="lbl">Houses</div><div class="bar"><div class="fill h" id="hb" style="width:0%"></div></div>
+  <div class="lbl">Weapons</div><div class="bar"><div class="fill w" id="wb" style="width:0%"></div></div>
+  <div style="font-size:13px;color:#94a3b8;margin-top:6px">Politics: <span id="pol" style="color:#e2e8f0">None</span></div>
+  <div style="font-size:13px;color:#94a3b8;margin-top:3px">Era: <span id="era" style="color:#34d399">Post-Dinosaur</span></div>
 </div>
 
-<div class="legend">
-  <div><span class="dot" style="background:#5b9cff"></span>Male</div>
-  <div><span class="dot" style="background:#ff6b9d"></span>Female</div>
-  <div><span class="dot" style="background:#3dd68c"></span>Married</div>
-  <div><span class="dot" style="background:#ffb347"></span>New baby</div>
-  <div><span class="dot" style="background:#aaa"></span>Loner</div>
+<div class="leg">
+  <div><span class="d" style="background:#60a5fa"></span>Male</div>
+  <div><span class="d" style="background:#f472b6"></span>Female</div>
+  <div><span class="d" style="background:#34d399"></span>Married</div>
+  <div><span class="d" style="background:#fbbf24"></span>Baby</div>
 </div>
-
-<div id="eventFlash"></div>
+<div id="flash"></div>
 
 <script>
-const canvas = document.getElementById('canvas');
+const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 let W, H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight-52}
+addEventListener('resize',resize);resize();
 
-function resize() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight - 52;
-}
-window.addEventListener('resize', resize);
-resize();
+let year=-65000000, agents=[], nextId=0, tech=0, houses=0, weapons=0;
+let politics="None", babies=0, sexCount=0, running=false;
 
-// ========== STATE ==========
-let year = -65000000;
-let agents = [];
-let nextId = 0;
-let tech = 0;
-let houses = 0;
-let weapons = 0;
-let politics = "None";
-let totalBabies = 0;
-let totalSex = 0;
-let running = false;
-let tickCount = 0;
-
-// ========== AGENT ==========
-class Agent {
-  constructor(birth, parents = null) {
-    this.id = nextId++;
-    this.birth = birth;
-    this.sex = Math.random() < 0.5 ? 'M' : 'F';
-    this.x = Math.random() * W;
-    this.y = 60 + Math.random() * (H - 80);
-    this.vx = (Math.random() - 0.5) * 0.9;
-    this.vy = (Math.random() - 0.5) * 0.9;
-    this.r = 6;
-    this.marriedTo = null;
-    this.isBaby = false;
-    this.babyTimer = 0;
-    this.alive = true;
-    this.libido = 35 + Math.random() * 55;
-    this.social = 25 + Math.random() * 55;
-    this.health = 55 + Math.random() * 35;
-    this.intelligence = parents
-      ? (parents[0].intelligence + parents[1].intelligence) / 2 + (Math.random() - 0.5) * 8
-      : 9 + Math.random() * 18;
-
-    if (parents) {
-      this.isBaby = true;
-      this.babyTimer = 120;
-      this.r = 4;
-      this.x = parents[0].x + (Math.random() - 0.5) * 40;
-      this.y = parents[0].y + (Math.random() - 0.5) * 40;
+class Agent{
+  constructor(birth, parents=null){
+    this.id=nextId++;
+    this.birth=birth;
+    this.sex=Math.random()<0.5?'M':'F';
+    this.x=Math.random()*W;
+    this.y=50+Math.random()*(H-70);
+    this.vx=(Math.random()-0.5)*0.7;
+    this.vy=(Math.random()-0.5)*0.7;
+    this.r=6;
+    this.married=null;
+    this.baby=false;
+    this.timer=0;
+    this.intel=parents?(parents[0].intel+parents[1].intel)/2+(Math.random()-0.5)*7:10+Math.random()*16;
+    this.health=60+Math.random()*30;
+    if(parents){
+      this.baby=true;this.timer=150;this.r=4;
+      this.x=parents[0].x+(Math.random()-0.5)*50;
+      this.y=parents[0].y+(Math.random()-0.5)*50;
     }
   }
-
-  age() { return year - this.birth; }
-
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
-
-    // bounce
-    if (this.x < 12) { this.x = 12; this.vx *= -1; }
-    if (this.x > W - 12) { this.x = W - 12; this.vx *= -1; }
-    if (this.y < 50) { this.y = 50; this.vy *= -1; }
-    if (this.y > H - 12) { this.y = H - 12; this.vy *= -1; }
-
-    // soft center pull
-    this.vx += (W / 2 - this.x) * 0.00004;
-    this.vy += (H / 2 - this.y) * 0.00004;
-    this.vx *= 0.993;
-    this.vy *= 0.993;
-
-    // married couples slowly drift toward each other
-    if (this.marriedTo !== null) {
-      const p = agents.find(a => a.id === this.marriedTo);
-      if (p) {
-        this.vx += (p.x - this.x) * 0.0015;
-        this.vy += (p.y - this.y) * 0.0015;
-      }
+  age(){return year-this.birth}
+  update(){
+    this.x+=this.vx;this.y+=this.vy;
+    if(this.x<10){this.x=10;this.vx*=-1}
+    if(this.x>W-10){this.x=W-10;this.vx*=-1}
+    if(this.y<45){this.y=45;this.vy*=-1}
+    if(this.y>H-10){this.y=H-10;this.vy*=-1}
+    this.vx+=(W/2-this.x)*0.00003;
+    this.vy+=(H/2-this.y)*0.00003;
+    this.vx*=0.994;this.vy*=0.994;
+    if(this.married){
+      const p=agents.find(a=>a.id===this.married);
+      if(p){this.vx+=(p.x-this.x)*0.002;this.vy+=(p.y-this.y)*0.002}
     }
-
-    if (this.isBaby) {
-      this.babyTimer--;
-      if (this.babyTimer <= 0) {
-        this.isBaby = false;
-        this.r = 6;
-      }
-    }
+    if(this.baby){this.timer--;if(this.timer<=0){this.baby=false;this.r=6}}
   }
-
-  draw() {
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-
-    if (this.isBaby) {
-      ctx.fillStyle = '#ffb347';
-      ctx.shadowColor = '#ffb347';
-      ctx.shadowBlur = 15;
-    } else if (this.marriedTo !== null) {
-      ctx.fillStyle = '#3dd68c';
-    } else if (this.age() > 32) {
-      // loner – slightly dimmer
-      ctx.fillStyle = this.sex === 'M' ? '#4a7ab8' : '#c45a7a';
-    } else {
-      ctx.fillStyle = this.sex === 'M' ? '#5b9cff' : '#ff6b9d';
-    }
-    ctx.fill();
-    ctx.shadowBlur = 0;
+  draw(){
+    ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+    if(this.baby){ctx.fillStyle='#fbbf24';ctx.shadowColor='#fbbf24';ctx.shadowBlur=14}
+    else if(this.married)ctx.fillStyle='#34d399';
+    else ctx.fillStyle=this.sex==='M'?'#60a5fa':'#f472b6';
+    ctx.fill();ctx.shadowBlur=0;
   }
 }
 
-// ========== HELPERS ==========
-function flash(text, color = '#fff') {
-  const el = document.getElementById('eventFlash');
-  el.textContent = text;
-  el.style.color = color;
-  el.style.opacity = '1';
-  setTimeout(() => el.style.opacity = '0', 900);
+function flash(t,c='#fff'){
+  const e=document.getElementById('flash');
+  e.textContent=t;e.style.color=c;e.style.opacity=1;
+  setTimeout(()=>e.style.opacity=0,800);
 }
 
-// ========== INIT ==========
-function init() {
-  agents = [];
-  for (let i = 0; i < 55; i++) {
-    agents.push(new Agent(year - Math.floor(Math.random() * 20)));
-  }
+function init(){
+  agents=[];
+  for(let i=0;i<70;i++) agents.push(new Agent(year-Math.floor(Math.random()*25)));
 }
 
-// ========== SIMULATION STEP (slower + more events) ==========
-function step() {
-  tickCount++;
+function step(){
+  // SLOW time progression
+  let jump;
+  if(year < -5000000)      jump = 8000;
+  else if(year < -500000)  jump = 2500;
+  else if(year < -50000)   jump = 600;
+  else if(year < -5000)    jump = 120;
+  else if(year < 0)        jump = 40;
+  else if(year < 1000)     jump = 15;
+  else if(year < 1800)     jump = 8;
+  else                     jump = 4;
 
-  // ===== MUCH SLOWER TIME =====
-  let stepSize;
-  if (year < -10000000)      stepSize = 25000;   // still a bit fast in deep time
-  else if (year < -1000000)  stepSize = 8000;
-  else if (year < -100000)   stepSize = 2000;
-  else if (year < -10000)    stepSize = 400;
-  else if (year < 0)         stepSize = 80;
-  else if (year < 1500)      stepSize = 25;
-  else if (year < 1900)      stepSize = 12;
-  else                       stepSize = 6;     // modern & future = slow
+  year += jump;
+  if(year>2500) year=2500;
 
-  year += stepSize;
-  if (year > 2400) year = 2400;
-
-  // death
-  agents = agents.filter(a => {
-    const age = a.age();
-    let chance = 0.0012 + Math.pow(age / 95, 3) * 0.09;
-    chance *= Math.max(0.3, 1.1 - tech * 0.04);
-    if (Math.random() < chance || age > 108) {
-      if (a.marriedTo !== null) {
-        const p = agents.find(x => x.id === a.marriedTo);
-        if (p) p.marriedTo = null;
-      }
+  // death (gentler)
+  agents = agents.filter(a=>{
+    const age=a.age();
+    let ch=0.0008+Math.pow(age/100,3)*0.07;
+    ch*=Math.max(0.35,1.05-tech*0.035);
+    if(Math.random()<ch||age>110){
+      if(a.married){const p=agents.find(x=>x.id===a.married);if(p)p.married=null}
       return false;
     }
     return true;
   });
 
-  // ===== MARRIAGES (more frequent) =====
-  const singles = agents.filter(a => !a.marriedTo && a.age() >= 16 && a.age() <= 52);
-  const males = singles.filter(a => a.sex === 'M');
-  const females = singles.filter(a => a.sex === 'F');
-
-  for (let m of males) {
-    if (females.length === 0) break;
-    // higher chance now
-    if (Math.random() < 0.045 + tech * 0.008) {
-      const idx = Math.floor(Math.random() * females.length);
-      const f = females.splice(idx, 1)[0];
-      m.marriedTo = f.id;
-      f.marriedTo = m.id;
-      // small visual pull
-      m.vx += (f.x - m.x) * 0.03;
-      m.vy += (f.y - m.y) * 0.03;
+  // MARRIAGES – much more frequent
+  const single=agents.filter(a=>!a.married&&a.age()>=15&&a.age()<=55);
+  const males=single.filter(a=>a.sex==='M');
+  const females=single.filter(a=>a.sex==='F');
+  for(const m of males){
+    if(!females.length)break;
+    if(Math.random()<0.09){                 // high chance
+      const f=females.splice(Math.floor(Math.random()*females.length),1)[0];
+      m.married=f.id;f.married=m.id;
+      m.vx+=(f.x-m.x)*0.04;m.vy+=(f.y-m.y)*0.04;
     }
   }
 
-  // ===== SEX + BABIES (actually happens a lot more) =====
-  for (let a of agents) {
-    if (a.sex !== 'F' || !a.marriedTo) continue;
-    const partner = agents.find(x => x.id === a.marriedTo);
-    if (!partner) continue;
+  // SEX + BABIES – happens a lot
+  for(const a of agents){
+    if(a.sex!=='F'||!a.married)continue;
+    const p=agents.find(x=>x.id===a.married);
+    if(!p)continue;
+    const age=a.age();
+    if(age<16||age>46)continue;
 
-    const age = a.age();
-    if (age < 16 || age > 44) continue;
-
-    // sex chance every tick (much higher)
-    if (Math.random() < 0.07) {
-      totalSex++;
-      // pregnancy chance
-      let preg = 0.18 - tech * 0.009;
-      if (Math.random() < preg && agents.length < 380) {
-        const baby = new Agent(year, [a, partner]);
-        agents.push(baby);
-        totalBabies++;
-        if (Math.random() < 0.3) flash("New baby!", "#ffb347");
+    if(Math.random()<0.13){                 // sex often
+      sexCount++;
+      if(Math.random()<0.28 && agents.length<420){  // high birth chance
+        const b=new Agent(year,[a,p]);
+        agents.push(b);
+        babies++;
+        if(Math.random()<0.4)flash('Baby born!','#fbbf24');
       }
     }
   }
 
-  // casual sex for loners (lower rate)
-  const lonely = agents.filter(a => !a.marriedTo && a.age() >= 18 && a.age() <= 48);
-  if (lonely.length >= 2 && Math.random() < 0.03) {
-    const a1 = lonely[Math.floor(Math.random() * lonely.length)];
-    let a2 = lonely[Math.floor(Math.random() * lonely.length)];
-    if (a1.sex !== a2.sex) {
-      totalSex++;
-      if (Math.random() < 0.08 && agents.length < 370) {
-        const baby = new Agent(year, [a1, a2]);
-        agents.push(baby);
-        totalBabies++;
+  // some casual sex among loners
+  const lonely=agents.filter(a=>!a.married&&a.age()>=17&&a.age()<=50);
+  if(lonely.length>3&&Math.random()<0.06){
+    const a1=lonely[Math.floor(Math.random()*lonely.length)];
+    let a2=lonely[Math.floor(Math.random()*lonely.length)];
+    if(a1!==a2&&a1.sex!==a2.sex){
+      sexCount++;
+      if(Math.random()<0.12&&agents.length<400){
+        agents.push(new Agent(year,[a1,a2]));
+        babies++;
       }
     }
   }
 
-  // ===== TECHNOLOGY (steady growth) =====
-  const avgInt = agents.reduce((s, a) => s + a.intelligence, 0) / (agents.length || 1);
-  tech += (avgInt / 70) * Math.log10(agents.length + 8) * 0.0045;
-  tech = Math.min(14, tech);
+  // technology grows steadily
+  const avg=agents.reduce((s,a)=>s+a.intel,0)/(agents.length||1);
+  tech+= (avg/65)*Math.log10(agents.length+5)*0.0038;
+  tech=Math.min(14,tech);
 
-  // houses & weapons unlock and grow
-  if (tech > 1.2) houses = Math.min(100, houses + 0.15);
-  if (tech > 2.0) weapons = Math.min(100, weapons + 0.12);
-  if (tech > 4.5) houses = Math.min(100, houses + 0.25);
-  if (tech > 6.5) weapons = Math.min(100, weapons + 0.2);
+  if(tech>1.0) houses=Math.min(100,houses+0.18);
+  if(tech>1.8) weapons=Math.min(100,weapons+0.14);
+  if(tech>4)   houses=Math.min(100,houses+0.3);
+  if(tech>6)   weapons=Math.min(100,weapons+0.22);
 
-  // politics
-  if (tech < 2.5) politics = "Bands / Kin";
-  else if (tech < 4.5) politics = "Tribes";
-  else if (tech < 6.5) politics = "Early Kingdoms";
-  else if (tech < 8.5) politics = "Nations & Empires";
-  else if (tech < 11) politics = "Modern States";
-  else politics = "Global + AI era";
+  if(tech<2.2) politics="Bands";
+  else if(tech<4.2) politics="Tribes";
+  else if(tech<6.5) politics="Kingdoms";
+  else if(tech<9) politics="Nations";
+  else if(tech<11.5) politics="Modern States";
+  else politics="AI / Global era";
 
-  // soft cap
-  if (agents.length > 360) {
-    agents.sort((a, b) => a.age() - b.age());
-    agents = agents.slice(0, 340);
-  }
+  if(agents.length>400) agents=agents.slice(0,380);
 }
 
-// ========== DRAW ==========
-function draw() {
-  ctx.clearRect(0, 0, W, H);
-
-  // very faint grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.015)';
-  for (let x = 0; x < W; x += 70) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-  }
-
-  // married links
-  ctx.strokeStyle = 'rgba(61,214,140,0.18)';
-  ctx.lineWidth = 1.2;
-  for (let a of agents) {
-    if (a.marriedTo && a.sex === 'M') {
-      const p = agents.find(x => x.id === a.marriedTo);
-      if (p) {
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-      }
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // married lines
+  ctx.strokeStyle='rgba(52,211,153,0.2)';
+  ctx.lineWidth=1.1;
+  for(const a of agents){
+    if(a.married&&a.sex==='M'){
+      const p=agents.find(x=>x.id===a.married);
+      if(p){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(p.x,p.y);ctx.stroke()}
     }
   }
-
-  // agents
-  for (let a of agents) {
-    a.update();
-    a.draw();
-  }
+  for(const a of agents){a.update();a.draw()}
 }
 
-// ========== UI ==========
-function updateUI() {
-  document.getElementById('year').textContent = 'Year ' + Math.floor(year).toLocaleString();
-  document.getElementById('pop').textContent = agents.length;
-  document.getElementById('married').textContent = Math.floor(agents.filter(a => a.marriedTo).length / 2);
-  document.getElementById('loners').textContent = agents.filter(a => !a.marriedTo && a.age() > 30).length;
-  document.getElementById('babies').textContent = totalBabies;
-  document.getElementById('sex').textContent = totalSex;
+function ui(){
+  document.getElementById('year').textContent='Year '+Math.floor(year).toLocaleString();
+  document.getElementById('pop').textContent=agents.length;
+  document.getElementById('mar').textContent=Math.floor(agents.filter(a=>a.married).length/2);
+  document.getElementById('lon').textContent=agents.filter(a=>!a.married&&a.age()>28).length;
+  document.getElementById('bab').textContent=babies;
+  document.getElementById('sex').textContent=sexCount;
+  document.getElementById('tb').style.width=(tech/14*100)+'%';
+  document.getElementById('hb').style.width=houses+'%';
+  document.getElementById('wb').style.width=weapons+'%';
+  document.getElementById('pol').textContent=politics;
 
-  document.getElementById('techBar').style.width = (tech / 14 * 100) + '%';
-  document.getElementById('houseBar').style.width = houses + '%';
-  document.getElementById('weaponBar').style.width = weapons + '%';
-  document.getElementById('politics').textContent = politics;
-
-  let era = "Post-Dinosaur";
-  if (year > -2000000) era = "Early Mammals";
-  if (year > -300000) era = "Early Humans";
-  if (year > -12000) era = "Agriculture";
-  if (year > 0) era = "Civilizations";
-  if (year > 1750) era = "Industrial";
-  if (year > 1950) era = "Modern";
-  if (year > 2050) era = "Near Future";
-  document.getElementById('era').textContent = era;
+  let e="Post-Dinosaur";
+  if(year>-2000000)e="Early Mammals";
+  if(year>-300000)e="Early Humans";
+  if(year>-10000)e="Agriculture";
+  if(year>0)e="Civilizations";
+  if(year>1700)e="Industrial";
+  if(year>1950)e="Modern";
+  if(year>2080)e="Future";
+  document.getElementById('era').textContent=e;
 }
 
-// ========== LOOP ==========
-function loop() {
-  if (running) {
-    // run several small steps per frame so events feel continuous
-    for (let i = 0; i < 2; i++) step();
-    updateUI();
+function loop(){
+  if(running){
+    step();
+    ui();
   }
   draw();
   requestAnimationFrame(loop);
 }
 
-// ========== START ==========
-document.getElementById('startBtn').onclick = () => {
-  document.getElementById('startScreen').style.display = 'none';
+document.getElementById('go').onclick=()=>{
+  document.getElementById('start').style.display='none';
   init();
-  running = true;
+  running=true;
 };
-
 loop();
 </script>
 </body>

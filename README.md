@@ -1,343 +1,408 @@
 #!/usr/bin/env python3
 """
-Real-life Human Evolution Simulation
-From the age of dinosaurs → modern civilization → near future
-Simplified but stage-accurate model with stochastic events.
+Real-life style Human Evolution Simulator
+Dinosaurs → Mammals → Humans → Civilization → Future
+Includes: sex, marriages, babies, loners, technology, weapons, houses, politics
+Real-time pacing: 10 years per minute once humans appear
 """
 
-import time
 import random
+import math
+import time
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict
+
+# ============================================================
+# CONFIG
+# ============================================================
+START_YEAR           = -65_000_000
+HUMAN_ERA_START      = -300_000          # switch to real-time here
+END_YEAR             =  2_200
+YEARS_PER_MINUTE     = 10
+REAL_SECONDS_PER_STEP = 60               # 1 real minute = 10 simulated years
+MAX_AGENTS           = 650
+SEED                 = 42
+random.seed(SEED)
+
+# ============================================================
+# AGENT & SOCIETY
+# ============================================================
+@dataclass
+class Agent:
+    id: int
+    birth_year: int
+    sex: str                          # 'M' or 'F'
+    intelligence: float
+    aggression: float
+    sociality: float
+    libido: float                     # desire for sex
+    health: float = 82.0
+    married_to: Optional[int] = None
+    children: List[int] = field(default_factory=list)
+    tech_affinity: float = 0.0
+    political_lean: float = 0.0
+    alive: bool = True
+    is_loner: bool = False
+    last_sex_year: int = -999999
+
+    def age(self, year: int) -> int:
+        return year - self.birth_year
 
 @dataclass
-class WorldState:
-    year: int = -100_000_000          # negative = years before present
-    species: str = "Non-avian dinosaurs dominate"
-    population: float = 1e9           # rough global biomass proxy early on
-    tech_level: float = 0.0           # 0–12+ scale
-    social: str = "Ecosystems / herds"
-    housing: str = "None (wild)"
-    politics: str = "None"
-    weapons: str = "Teeth, claws, size"
-    key_tech: List[str] = field(default_factory=list)
-    events_log: List[str] = field(default_factory=list)
-    extinction_risk: float = 0.1
-    intelligence: float = 0.1         # relative cognitive capacity
-    energy: float = 0.0               # available useful energy (fire → fossil → nuclear → fusion…)
-
-    def age_str(self) -> str:
-        if self.year < 0:
-            mya = abs(self.year) / 1_000_000
-            if mya >= 1:
-                return f"{mya:.1f} million years ago"
-            kya = abs(self.year) / 1_000
-            return f"{kya:.0f} thousand years ago"
-        return f"Year {self.year} CE"
-
-
-class EvolutionSimulator:
-    def __init__(self, seed: Optional[int] = None):
-        if seed is not None:
-            random.seed(seed)
-        self.state = WorldState()
-        self.running = True
-        self.step_count = 0
+class Society:
+    year: int = START_YEAR
+    agents: Dict[int, Agent] = field(default_factory=dict)
+    next_id: int = 0
+    tech_level: float = 0.0
+    tech_names = [
+        "None", "Tools", "Fire", "Language", "Agriculture",
+        "Metalworking", "Writing", "Gunpowder", "Industrial",
+        "Electricity", "Computers", "Internet", "AI", "Spacefaring", "Post-Human"
+    ]
+    political_system: str = "None"
+    houses: int = 0
+    weapons: int = 0
+    total_births: int = 0
+    total_deaths: int = 0
+    marriages: int = 0
+    sexual_encounters: int = 0
+    loners: int = 0
+    disasters: int = 0
+    history: List[str] = field(default_factory=list)
 
     def log(self, msg: str):
-        entry = f"[{self.state.age_str()}] {msg}"
-        self.state.events_log.append(entry)
+        entry = f"[{self.year:+,}] {msg}"
+        self.history.append(entry)
         print(entry)
 
-    def advance_time(self):
-        """Adaptive time steps – huge jumps early, finer later."""
-        y = self.state.year
-        if y < -10_000_000:
-            delta = random.randint(500_000, 2_000_000)
-        elif y < -1_000_000:
-            delta = random.randint(50_000, 200_000)
-        elif y < -50_000:
-            delta = random.randint(2_000, 10_000)
-        elif y < -5_000:
-            delta = random.randint(200, 800)
-        elif y < 0:
-            delta = random.randint(50, 200)
-        elif y < 1800:
-            delta = random.randint(20, 80)
-        elif y < 1950:
-            delta = random.randint(5, 20)
+def clamp(v, lo=0.0, hi=100.0):
+    return max(lo, min(hi, v))
+
+def mutate(val, amount=5.0):
+    return clamp(val + random.gauss(0, amount))
+
+def tech_name(level: float) -> str:
+    idx = min(int(level), len(Society.tech_names) - 1)
+    return Society.tech_names[idx]
+
+# ============================================================
+# CORE MECHANICS
+# ============================================================
+def create_initial_population(soc: Society, n=48):
+    for _ in range(n):
+        a = Agent(
+            id=soc.next_id,
+            birth_year=soc.year - random.randint(1, 16),
+            sex=random.choice(['M', 'F']),
+            intelligence=random.uniform(8, 23),
+            aggression=random.uniform(20, 58),
+            sociality=random.uniform(25, 75),
+            libido=random.uniform(30, 80),
+            health=random.uniform(55, 93),
+            tech_affinity=random.uniform(0, 5)
+        )
+        soc.agents[a.id] = a
+        soc.next_id += 1
+    soc.log(f"Initial population of {n} early post-dinosaur mammals established.")
+
+def age_and_die(soc: Society):
+    dead = []
+    for a in list(soc.agents.values()):
+        if not a.alive:
+            continue
+        age = a.age(soc.year)
+        death_chance = 0.0016 + (age / 112)**3 * 0.13
+        death_chance *= max(0.22, 1.18 - soc.tech_level * 0.048)
+        death_chance *= max(0.35, 1.28 - a.health / 145)
+        if random.random() < death_chance or age > 110:
+            a.alive = False
+            dead.append(a.id)
+            soc.total_deaths += 1
+            if a.married_to is not None and a.married_to in soc.agents:
+                soc.agents[a.married_to].married_to = None
+    for did in dead:
+        del soc.agents[did]
+
+def form_marriages(soc: Society):
+    singles = [a for a in soc.agents.values()
+               if a.alive and a.married_to is None and 15 <= a.age(soc.year) <= 55]
+    random.shuffle(singles)
+    males = [a for a in singles if a.sex == 'M']
+    females = [a for a in singles if a.sex == 'F']
+
+    for m in males:
+        if not females:
+            break
+        best, best_score = None, -999
+        for f in females[:min(12, len(females))]:
+            score = -abs(m.sociality - f.sociality) * 0.4
+            score -= abs(m.intelligence - f.intelligence) * 0.25
+            score += (m.sociality + f.sociality) * 0.15
+            score += (m.libido + f.libido) * 0.05
+            score += random.uniform(-10, 10)
+            if score > best_score:
+                best_score, best = score, f
+        if best and best_score > -20 and random.random() < 0.48 + soc.tech_level * 0.02:
+            m.married_to = best.id
+            best.married_to = m.id
+            soc.marriages += 1
+            females.remove(best)
+
+def have_sex_and_babies(soc: Society):
+    """Sex happens. Married couples have regular sex. Some loners have casual sex."""
+    alive = [a for a in soc.agents.values() if a.alive]
+    random.shuffle(alive)
+
+    # 1. Married sex
+    for a in alive:
+        if a.sex != 'F' or a.married_to is None:
+            continue
+        partner = soc.agents.get(a.married_to)
+        if not partner or not partner.alive:
+            continue
+
+        age_f = a.age(soc.year)
+        age_m = partner.age(soc.year)
+        if not (15 <= age_f <= 48 and 15 <= age_m <= 65):
+            continue
+
+        # Desire based on libido, health, and how long since last sex
+        years_since = soc.year - max(a.last_sex_year, partner.last_sex_year)
+        desire = (a.libido + partner.libido) / 2
+        desire *= (a.health + partner.health) / 180
+        desire *= min(2.5, 0.6 + years_since * 0.15)
+
+        if random.random() < desire / 140:
+            # They have sex
+            a.last_sex_year = soc.year
+            partner.last_sex_year = soc.year
+            soc.sexual_encounters += 1
+
+            # Chance of pregnancy (lower with higher tech = better contraception/knowledge)
+            preg_chance = 0.22 - soc.tech_level * 0.012
+            preg_chance *= (a.health / 90)
+            if random.random() < preg_chance and len(soc.agents) < MAX_AGENTS * 1.2:
+                child = Agent(
+                    id=soc.next_id,
+                    birth_year=soc.year,
+                    sex=random.choice(['M', 'F']),
+                    intelligence=mutate((a.intelligence + partner.intelligence) / 2, 5.5),
+                    aggression=mutate((a.aggression + partner.aggression) / 2, 6),
+                    sociality=mutate((a.sociality + partner.sociality) / 2, 5.5),
+                    libido=mutate((a.libido + partner.libido) / 2, 7),
+                    health=mutate((a.health + partner.health) / 2 + 3, 7),
+                    tech_affinity=mutate((a.tech_affinity + partner.tech_affinity) / 2, 3.8)
+                )
+                soc.agents[child.id] = child
+                a.children.append(child.id)
+                partner.children.append(child.id)
+                soc.next_id += 1
+                soc.total_births += 1
+
+    # 2. Casual sex among loners / unmarried (lower chance)
+    unmarried = [a for a in alive if a.married_to is None and 16 <= a.age(soc.year) <= 50]
+    random.shuffle(unmarried)
+    for i in range(0, len(unmarried) - 1, 2):
+        a1, a2 = unmarried[i], unmarried[i + 1]
+        if a1.sex == a2.sex:
+            continue
+        if a1.sex == 'M':
+            male, female = a1, a2
         else:
-            delta = random.randint(1, 5)
+            male, female = a2, a1
 
-        self.state.year += delta
-        self.step_count += 1
+        desire = (male.libido + female.libido) / 2 * 0.55
+        desire *= (male.sociality + female.sociality) / 160
+        if random.random() < desire / 160:
+            male.last_sex_year = soc.year
+            female.last_sex_year = soc.year
+            soc.sexual_encounters += 1
 
-    def apply_stage_transitions(self):
-        s = self.state
-        y = s.year
+            preg_chance = 0.11 - soc.tech_level * 0.008
+            if random.random() < preg_chance and len(soc.agents) < MAX_AGENTS * 1.15:
+                child = Agent(
+                    id=soc.next_id,
+                    birth_year=soc.year,
+                    sex=random.choice(['M', 'F']),
+                    intelligence=mutate((male.intelligence + female.intelligence) / 2, 6),
+                    aggression=mutate((male.aggression + female.aggression) / 2, 7),
+                    sociality=mutate((male.sociality + female.sociality) / 2, 6),
+                    libido=mutate((male.libido + female.libido) / 2, 8),
+                    health=mutate((male.health + female.health) / 2, 8),
+                    tech_affinity=mutate((male.tech_affinity + female.tech_affinity) / 2, 4)
+                )
+                soc.agents[child.id] = child
+                soc.next_id += 1
+                soc.total_births += 1
 
-        # --- Deep time ---
-        if y > -66_000_000 and "Non-avian dinosaurs" in s.species:
-            s.species = "Mammals radiate after K-Pg extinction"
-            s.population = 5e7
-            s.log("Chicxulub impact and Deccan volcanism wipe out non-avian dinosaurs. Mammals inherit the Earth.")
-            s.extinction_risk = 0.05
+def update_loners(soc: Society):
+    count = 0
+    for a in soc.agents.values():
+        if a.alive and a.married_to is None and a.age(soc.year) > 26:
+            a.is_loner = True
+            count += 1
+            if a.sociality > 60 and a.libido > 55:
+                a.health = max(15, a.health - 0.6)  # lonely + high desire hurts a bit
+        else:
+            a.is_loner = False
+    soc.loners = count
 
-        if y > -55_000_000 and s.intelligence < 0.3:
-            s.species = "Early primates appear"
-            s.intelligence = 0.3
-            s.log("Primates evolve in the trees of the Eocene. Grasping hands and better vision.")
+def advance_technology(soc: Society):
+    if not soc.agents:
+        return
+    alive = [a for a in soc.agents.values() if a.alive]
+    avg_int = sum(a.intelligence for a in alive) / len(alive)
+    avg_aff = sum(a.tech_affinity for a in alive) / len(alive)
+    pop = len(alive)
 
-        if y > -7_000_000 and "hominin" not in s.species.lower():
-            s.species = "Early hominins (Sahelanthropus / Orrorin lineage)"
-            s.intelligence = 0.6
-            s.population = 5e4
-            s.log("Hominin line splits from chimpanzees. Bipedalism begins.")
+    progress = (avg_int / 80) * (avg_aff / 30) * math.log10(pop + 10) * 0.011
+    progress *= (1.0 + random.uniform(-0.3, 0.4))
+    old = soc.tech_level
+    soc.tech_level = min(14.2, soc.tech_level + progress)
 
-        if y > -3_500_000:
-            s.species = "Australopithecus"
-            s.intelligence = 0.8
-            s.log("Australopithecus walks fully upright on the African savanna.")
+    if int(old) < int(soc.tech_level):
+        soc.log(f"*** TECHNOLOGICAL LEAP → {tech_name(soc.tech_level)} ***")
 
-        if y > -2_500_000:
-            s.species = "Homo habilis / early Homo"
-            s.tech_level = 0.5
-            s.key_tech.append("Oldowan stone tools")
-            s.weapons = "Stone flakes, clubs"
-            s.log("First stone tools. Scavenging and simple butchery.")
+    if soc.tech_level >= 1.0 and soc.weapons < 1:
+        soc.weapons = 4
+        soc.log("Simple tools and weapons appear.")
+    if soc.tech_level >= 2.6 and soc.houses < 1:
+        soc.houses = 10
+        soc.log("First permanent shelters / houses built.")
+    if soc.tech_level >= 4.8:
+        soc.houses = max(soc.houses, int(pop * 0.4))
+    if soc.tech_level >= 6.5:
+        soc.weapons = max(soc.weapons, int(pop * 0.25))
+    if soc.tech_level >= 8.5:
+        soc.houses = max(soc.houses, int(pop * 0.8))
+        soc.weapons = max(soc.weapons, int(pop * 0.5))
 
-        if y > -1_800_000:
-            s.species = "Homo erectus"
-            s.tech_level = 1.2
-            s.key_tech.append("Acheulean handaxes")
-            s.key_tech.append("Controlled use of fire (later)")
-            s.housing = "Simple shelters / caves"
-            s.intelligence = 1.4
-            s.population = 1e5
-            s.log("Homo erectus expands out of Africa. Fire mastery begins transforming diet and social life.")
+def evolve_politics(soc: Society):
+    if soc.tech_level < 3.0:
+        soc.political_system = "Bands / Kin groups"
+    elif soc.tech_level < 5.0:
+        soc.political_system = "Tribes / Chiefdoms"
+    elif soc.tech_level < 7.0:
+        soc.political_system = "Early States / Kingdoms"
+    elif soc.tech_level < 9.5:
+        avg = sum(a.political_lean for a in soc.agents.values() if a.alive) / max(1, len(soc.agents))
+        if abs(avg) < 0.2:
+            soc.political_system = "Constitutional / Mixed systems"
+        elif avg > 0.15:
+            soc.political_system = "Authoritarian / Strong-state"
+        else:
+            soc.political_system = "Liberal / Democratic experiments"
+    elif soc.tech_level < 12:
+        soc.political_system = "Globalized nation-states + corporations"
+    else:
+        soc.political_system = "Post-national / AI-influenced systems"
 
-        if y > -300_000:
-            s.species = "Homo sapiens (archaic → modern)"
-            s.tech_level = 2.0
-            s.intelligence = 2.5
-            s.key_tech.append("Levallois technique / composite tools")
-            s.log("Anatomically modern humans appear in Africa.")
+def disasters(soc: Society):
+    if random.random() < 0.03:
+        severity = random.uniform(0.07, 0.35) * max(0.25, 1.2 - soc.tech_level * 0.06)
+        deaths = 0
+        for a in list(soc.agents.values()):
+            if a.alive and random.random() < severity * (1.2 - a.health / 140):
+                a.alive = False
+                deaths += 1
+                soc.total_deaths += 1
+        if deaths:
+            soc.disasters += 1
+            soc.log(f"Disaster struck — {deaths} dead (tech reduced the toll)")
 
-        if y > -70_000:
-            s.tech_level = 2.8
-            s.key_tech.append("Symbolic thought / art / language fully modern")
-            s.social = "Hunter-gatherer bands"
-            s.log("Behavioral modernity. Art, ritual, complex language. Out-of-Africa migrations accelerate.")
+def soft_cap(soc: Society):
+    if len(soc.agents) > MAX_AGENTS:
+        excess = len(soc.agents) - MAX_AGENTS
+        cands = [a for a in soc.agents.values() if a.alive]
+        random.shuffle(cands)
+        for a in cands[:excess]:
+            a.alive = False
+            soc.total_deaths += 1
+        soc.agents = {k: v for k, v in soc.agents.items() if v.alive}
 
-        if y > -12_000:
-            s.tech_level = 3.5
-            s.key_tech.append("Agriculture & animal domestication")
-            s.housing = "Permanent villages"
-            s.social = "Tribes → early chiefdoms"
-            s.population = 5e6
-            s.weapons = "Bows, spears, early fortifications"
-            s.log("Neolithic Revolution. Farming begins in multiple centers. Population boom starts.")
+def print_status(soc: Society):
+    alive = [a for a in soc.agents.values() if a.alive]
+    if not alive:
+        print("Population extinct.")
+        return
+    pop = len(alive)
+    avg_int = sum(a.intelligence for a in alive) / pop
+    avg_age = sum(a.age(soc.year) for a in alive) / pop
+    married = sum(1 for a in alive if a.married_to is not None) // 2
+    loners = sum(1 for a in alive if a.is_loner)
 
-        if y > -5_000:
-            s.tech_level = 4.5
-            s.key_tech.extend(["Writing", "Bronze metallurgy", "Cities"])
-            s.housing = "Mud-brick / stone cities"
-            s.social = "City-states & early empires"
-            s.politics = "God-kings, priestly hierarchies, early law codes"
-            s.weapons = "Bronze weapons, chariots"
-            s.population = 5e7
-            s.log("Urban revolution. Writing, metallurgy, and the first states appear (Mesopotamia, Egypt, Indus, China…).")
+    print(f"\n── Year {soc.year:+,} ──  Population: {pop}")
+    print(f"  Married pairs: {married}   |  Loners: {loners}")
+    print(f"  Sexual encounters so far: {soc.sexual_encounters}")
+    print(f"  Avg Intelligence: {avg_int:.1f}   Avg Age: {avg_age:.1f}")
+    print(f"  Tech Level: {soc.tech_level:.2f}  ({tech_name(soc.tech_level)})")
+    print(f"  Houses: {soc.houses}   Weapons: {soc.weapons}")
+    print(f"  Political system: {soc.political_system}")
+    print(f"  Total births / deaths: {soc.total_births} / {soc.total_deaths}")
+    print("─" * 50)
 
-        if y > -1_200:
-            s.tech_level = 5.2
-            s.key_tech.append("Iron Age")
-            s.weapons = "Iron weapons, early cavalry tactics"
-            s.log("Iron spreads. Larger armies and more destructive warfare possible.")
+# ============================================================
+# MAIN LOOP
+# ============================================================
+def run():
+    soc = Society()
+    create_initial_population(soc)
 
-        if y > 500:
-            s.tech_level = 5.8
-            s.key_tech.append("Gunpowder (China → world)")
-            s.weapons = "Gunpowder weapons begin"
-            s.log("Gunpowder changes the calculus of fortifications and battle.")
+    print("\n>>> Fast-forwarding deep time after the dinosaurs...")
+    print("    Real-time mode (10 years per minute) begins at year -300,000\n")
 
-        if y > 1450:
-            s.tech_level = 6.5
-            s.key_tech.extend(["Printing press", "Ocean-going ships", "Early scientific method"])
-            s.politics = "Emerging nation-states & colonial empires"
-            s.housing = "Multi-story buildings, early urban planning"
-            s.log("Age of Exploration + Renaissance science. Global connections begin.")
+    last_print = soc.year
 
-        if y > 1750:
-            s.tech_level = 7.5
-            s.key_tech.extend(["Steam power", "Industrial manufacturing", "Fossil fuels"])
-            s.energy = 3.0
-            s.population = 1e9
-            s.housing = "Industrial cities, tenements, early suburbs"
-            s.weapons = "Rifled guns, artillery, early machine guns"
-            s.politics = "Nation-states, liberalism, nationalism, early socialism"
-            s.log("Industrial Revolution. Energy and production explode. Urbanization accelerates.")
+    while soc.year < END_YEAR:
+        if soc.year < HUMAN_ERA_START:
+            # Fast deep time
+            if soc.year < -2_000_000:
+                step = 80_000
+            elif soc.year < -800_000:
+                step = 20_000
+            else:
+                step = 4_000
+            sleep = 0.12
+        else:
+            # Real-time: 10 years every 60 real seconds
+            step = YEARS_PER_MINUTE
+            sleep = REAL_SECONDS_PER_STEP
 
-        if y > 1900:
-            s.tech_level = 8.5
-            s.key_tech.extend(["Electricity", "Internal combustion", "Radio", "Aircraft"])
-            s.weapons = "Machine guns, tanks, aircraft, chemical weapons"
-            s.log("Second Industrial Revolution. Global wars become possible.")
+        soc.year += step
 
-        if y > 1945:
-            s.tech_level = 9.2
-            s.key_tech.extend(["Nuclear weapons", "Computers (early)", "Antibiotics", "Green Revolution"])
-            s.weapons = "Nuclear arsenals + conventional precision"
-            s.politics = "Cold War bipolar order → later multipolar"
-            s.energy = 6.0
-            s.population = 2.5e9
-            s.log("Nuclear age begins. Computing and modern medicine transform life expectancy and power.")
+        age_and_die(soc)
+        form_marriages(soc)
+        have_sex_and_babies(soc)          # ← sex + possible babies
+        update_loners(soc)
+        advance_technology(soc)
+        evolve_politics(soc)
+        disasters(soc)
+        soft_cap(soc)
 
-        if y > 1990:
-            s.tech_level = 9.8
-            s.key_tech.extend(["Internet", "Mobile computing", "Genomics", "GPS"])
-            s.housing = "Global urban majority, skyscrapers, sprawl"
-            s.politics = "Liberal international order under strain; rising multipolarity"
-            s.population = 6e9
-            s.log("Information age. Instant global communication and data.")
+        # Printing
+        if soc.year < HUMAN_ERA_START:
+            if abs(soc.year - last_print) >= 150_000:
+                print_status(soc)
+                last_print = soc.year
+        else:
+            print_status(soc)
+            last_print = soc.year
 
-        if y > 2020:
-            s.tech_level = 10.3
-            s.key_tech.extend(["AI systems", "mRNA platforms", "Renewable energy surge", "Reusable rocketry"])
-            s.weapons = "Precision munitions, drones, cyber, nuclear triad"
-            s.politics = "Great-power competition + domestic polarization"
-            s.population = 8e9
-            s.energy = 7.5
-            s.log("Present day: AI, climate pressure, and renewed great-power rivalry.")
+        if not soc.agents:
+            print("\n*** EXTINCTION EVENT ***")
+            break
 
-        # --- Future projections (stochastic) ---
-        if y > 2035 and s.tech_level < 11:
-            if random.random() < 0.6:
-                s.tech_level = 11.0
-                s.key_tech.append("Advanced AI + robotics at scale")
-                s.log("AI systems begin transforming labor, science, and military affairs.")
-            if random.random() < 0.4:
-                s.key_tech.append("Commercial fusion or advanced fission breakthroughs")
-                s.energy = 9.0
-                s.log("Clean dense energy sources start to scale.")
+        time.sleep(sleep)
 
-        if y > 2050:
-            s.tech_level = min(s.tech_level + 0.3, 12.5)
-            if "Climate adaptation / geoengineering debates" not in s.key_tech:
-                s.key_tech.append("Climate adaptation infrastructure")
-            if random.random() < 0.5:
-                s.housing = "Mixed: dense cities + climate-resilient new towns + orbital habitats (early)"
-            if random.random() < 0.35:
-                s.key_tech.append("Permanent lunar / Martian footholds")
-                s.log("Human presence becomes multi-planetary (small scale).")
-
-        if y > 2100:
-            s.population = min(s.population * random.uniform(0.9, 1.15), 12e9)
-            s.politics = random.choice([
-                "Fragmented multipolar world with strong AI governance bodies",
-                "Loose global coordination regimes + powerful corporate/AI actors",
-                "Regional blocs with high-tech surveillance states",
-                "Partial collapse zones + high-tech enclaves"
-            ])
-            s.weapons = "Hypersonics, autonomous systems, directed energy, residual nuclear, cyber-biological"
-            if random.random() < 0.3:
-                s.log("Major demographic or climate-driven migration crises reshape politics.")
-            if random.random() < 0.25:
-                s.log("Breakthrough in longevity or cognitive enhancement technologies.")
-
-    def random_event(self):
-        s = self.state
-        y = s.year
-        r = random.random()
-
-        if y < -50_000_000 and r < 0.08:
-            s.log("Major volcanic or asteroid event perturbs climate.")
-        elif -300_000 < y < -20_000 and r < 0.12:
-            s.log(random.choice([
-                "Glacial maximum stresses populations; innovation in clothing and shelter.",
-                "Inter-group conflict over resources increases.",
-                "New hunting techniques or symbolic culture spreads."
-            ]))
-        elif -10_000 < y < 0 and r < 0.15:
-            s.log(random.choice([
-                "Agricultural package spreads to a new region.",
-                "Early state formation or collapse in a river valley.",
-                "Metallurgical innovation or trade network expands."
-            ]))
-        elif 0 < y < 1800 and r < 0.18:
-            s.log(random.choice([
-                "Empire rises or fragments.",
-                "Pandemic sweeps trade routes.",
-                "Religious or philosophical movement reshapes politics.",
-                "Gunpowder empire expands."
-            ]))
-        elif 1800 < y < 1950 and r < 0.2:
-            s.log(random.choice([
-                "Industrial war kills millions and accelerates technology.",
-                "Political revolution installs new ideology.",
-                "Scientific breakthrough (germ theory, electromagnetism, etc.)."
-            ]))
-        elif y > 1950 and r < 0.22:
-            events = [
-                "Proxy wars and nuclear brinkmanship.",
-                "Rapid economic growth in multiple regions.",
-                "Environmental movement gains force.",
-                "Digital networks reorganize information and power.",
-                "Great-power competition intensifies over tech and resources.",
-                "Public-health or climate shock tests institutions."
-            ]
-            s.log(random.choice(events))
-
-        # Population pressure / carrying capacity rough feedback
-        if s.tech_level < 4 and s.population > 1e8:
-            s.population *= 0.95
-        if s.tech_level > 8 and random.random() < 0.1:
-            s.population *= random.uniform(1.01, 1.04)
-
-    def status_snapshot(self):
-        s = self.state
-        print("\n" + "="*70)
-        print(f"YEAR: {s.age_str()}")
-        print(f"Species / era focus : {s.species}")
-        print(f"Population (approx) : {s.population:,.0f}")
-        print(f"Tech level          : {s.tech_level:.1f}")
-        print(f"Intelligence proxy  : {s.intelligence:.1f}")
-        print(f"Social organization : {s.social}")
-        print(f"Politics            : {s.politics}")
-        print(f"Housing / settlement: {s.housing}")
-        print(f"Weapons             : {s.weapons}")
-        print(f"Key technologies    : {', '.join(s.key_tech[-6:]) if s.key_tech else 'None yet'}")
-        print("="*70 + "\n")
-
-    def run(self, max_steps: int = 80, delay: float = 0.35, verbose_every: int = 1):
-        print("=== HUMAN EVOLUTION & CIVILIZATION SIMULATION ===")
-        print("Starting in the age of dinosaurs…\n")
-        time.sleep(1)
-
-        while self.running and self.step_count < max_steps and self.state.year < 2200:
-            self.advance_time()
-            self.apply_stage_transitions()
-            self.random_event()
-
-            if self.step_count % verbose_every == 0:
-                self.status_snapshot()
-
-            # Small chance of early termination by catastrophe (very rare after mammals)
-            if self.state.year < -50_000_000 and random.random() < 0.02:
-                self.log("Catastrophic extinction event – simulation ends.")
-                break
-
-            time.sleep(delay)
-
-        print("\n=== SIMULATION COMPLETE ===")
-        print(f"Final year reached: {self.state.age_str()}")
-        print(f"Final tech level: {self.state.tech_level:.1f}")
-        print(f"Final political form: {self.state.politics}")
-        print("\nMajor technologies unlocked:")
-        for t in self.state.key_tech:
-            print(f"  • {t}")
-
+    print("\n" + "=" * 60)
+    print("SIMULATION COMPLETE")
+    print("=" * 60)
+    print_status(soc)
+    print("\nRecent history:")
+    for entry in soc.history[-20:]:
+        print(" ", entry)
 
 if __name__ == "__main__":
-    # Change seed for different random histories; None = different every run
-    sim = EvolutionSimulator(seed=42)
-    sim.run(max_steps=100, delay=0.25, verbose_every=1)
+    print("Human Evolution Simulator — from post-dinosaur world to the future")
+    print("Includes sex, marriage, babies, loners, tech, weapons, houses & politics\n")
+    run()

@@ -3,13 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Civilization Simulator — Realistic Deep Zoom</title>
+<title>Civilization Simulator — Google-Maps Style Zoom</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-  :root {
-    --bg:#0b0f14; --panel:#141a22; --border:#1e2a38; --text:#e6edf5;
-    --muted:#8b9bb0; --accent:#3b82f6; --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
-  }
+  :root{--bg:#0b0f14;--panel:#141a22;--border:#1e2a38;--text:#e6edf5;--muted:#8b9bb0;--accent:#3b82f6;--good:#22c55e;--warn:#f59e0b;--bad:#ef4444}
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;height:100vh;overflow:hidden;display:grid;grid-template-rows:auto 1fr auto}
   header{background:var(--panel);border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -17,46 +14,46 @@
   header h1 span{color:var(--accent)}
   .controls,.zoom-controls{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
   button{background:#1e293b;color:var(--text);border:1px solid var(--border);padding:5px 12px;border-radius:6px;font-size:.8rem;cursor:pointer;font-weight:500;transition:.15s}
-  button:hover{background:#334155} button.active{background:var(--accent);border-color:var(--accent);color:#fff}
-  button.danger{background:#7f1d1d;border-color:#991b1b} button.danger:hover{background:#991b1b}
+  button:hover{background:#334155}button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.danger{background:#7f1d1d;border-color:#991b1b}button.danger:hover{background:#991b1b}
   .stats-bar{display:flex;gap:14px;font-size:.75rem;color:var(--muted);font-family:'JetBrains Mono',monospace}
   .stats-bar strong{color:var(--text)}
-  main{display:grid;grid-template-columns:1fr 350px;height:100%;overflow:hidden}
+  main{display:grid;grid-template-columns:1fr 340px;height:100%;overflow:hidden}
   .canvas-wrap{position:relative;background:#020617;overflow:hidden;cursor:grab}
   .canvas-wrap.dragging{cursor:grabbing}
   canvas{display:block;width:100%;height:100%}
   .overlay-info{position:absolute;top:10px;left:10px;background:rgba(15,23,42,.92);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:.78rem;max-width:300px;pointer-events:none;line-height:1.4}
   .zoom-badge{position:absolute;bottom:12px;left:12px;background:rgba(15,23,42,.92);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:.75rem;font-family:'JetBrains Mono',monospace;color:var(--accent)}
   .breadcrumb{position:absolute;top:10px;right:10px;background:rgba(15,23,42,.92);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:.72rem;max-width:340px;text-align:right}
-  .breadcrumb strong{color:var(--text);cursor:pointer} .breadcrumb strong:hover{color:var(--accent)} .breadcrumb span{color:var(--muted)}
+  .breadcrumb strong{color:var(--text);cursor:pointer}.breadcrumb strong:hover{color:var(--accent)}.breadcrumb span{color:var(--muted)}
   .sidebar{background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
   .tabs{display:flex;border-bottom:1px solid var(--border)}
   .tab{flex:1;text-align:center;padding:9px 2px;font-size:.72rem;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent}
-  .tab:hover{color:var(--text);background:#1e293b} .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .tab:hover{color:var(--text);background:#1e293b}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
   .tab-content{flex:1;overflow-y:auto;padding:12px}
   .panel-section{margin-bottom:16px}
   .panel-section h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px}
   .event-log{font-size:.75rem;line-height:1.4;font-family:'JetBrains Mono',monospace}
   .event{padding:5px 0;border-bottom:1px solid #1e293b;display:flex;gap:8px}
   .event .year{color:var(--accent);min-width:62px;flex-shrink:0}
-  .event.war .msg{color:var(--bad)} .event.discovery .msg{color:var(--good)} .event.politics .msg{color:#a78bfa}
-  .event.family .msg{color:#f472b6} .event.disaster .msg{color:var(--warn)}
+  .event.war .msg{color:var(--bad)}.event.discovery .msg{color:var(--good)}.event.politics .msg{color:#a78bfa}
+  .event.family .msg{color:#f472b6}.event.disaster .msg{color:var(--warn)}
   .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .stat-card{background:#0f172a;border:1px solid var(--border);border-radius:6px;padding:8px 10px}
-  .stat-card .label{font-size:.68rem;color:var(--muted)} .stat-card .value{font-size:1rem;font-weight:600;font-family:'JetBrains Mono',monospace}
+  .stat-card .label{font-size:.68rem;color:var(--muted)}.stat-card .value{font-size:1rem;font-weight:600;font-family:'JetBrains Mono',monospace}
   .tech-item,.res-item,.person-card{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1e293b;font-size:.78rem}
-  .tech-item.unlocked{color:var(--good)} .tech-item.locked{color:var(--muted);opacity:.55}
+  .tech-item.unlocked{color:var(--good)}.tech-item.locked{color:var(--muted);opacity:.55}
   .person-card{flex-direction:column;align-items:flex-start;gap:2px;padding:8px;background:#0f172a;border-radius:6px;margin-bottom:6px;cursor:pointer;border:1px solid var(--border)}
-  .person-card:hover{border-color:var(--accent)} .person-card .name{font-weight:600;color:#f472b6} .person-card .meta{color:var(--muted);font-size:.72rem}
+  .person-card:hover{border-color:var(--accent)}.person-card .name{font-weight:600;color:#f472b6}.person-card .meta{color:var(--muted);font-size:.72rem}
   .focus-btn{width:100%;margin-top:8px;background:var(--accent);border-color:var(--accent)}
   footer{background:var(--panel);border-top:1px solid var(--border);padding:5px 14px;font-size:.7rem;color:var(--muted);display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace}
-  .legend{display:flex;gap:10px;flex-wrap:wrap} .legend span{display:flex;align-items:center;gap:4px} .dot{width:9px;height:9px;border-radius:50%}
-  ::-webkit-scrollbar{width:6px} ::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+  .legend{display:flex;gap:10px;flex-wrap:wrap}.legend span{display:flex;align-items:center;gap:4px}.dot{width:9px;height:9px;border-radius:50%}
+  ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
 </style>
 </head>
 <body>
 <header>
-  <h1>🌍 <span>Civilization</span> Realistic Zoom</h1>
+  <h1>🌍 <span>Civilization</span> Google-Maps Zoom</h1>
   <div class="controls">
     <button id="btnPlay" class="active">▶ Play</button>
     <button id="btnPause">⏸ Pause</button>
@@ -82,7 +79,7 @@
 <main>
   <div class="canvas-wrap" id="canvasWrap">
     <canvas id="world"></canvas>
-    <div class="overlay-info" id="hoverInfo">Scroll to zoom • Drag to pan • Click to inspect</div>
+    <div class="overlay-info" id="hoverInfo">Scroll to zoom • Drag to pan • Click cities/people</div>
     <div class="zoom-badge" id="zoomBadge">Zoom: 1.0× — World View</div>
     <div class="breadcrumb" id="breadcrumb">World</div>
   </div>
@@ -96,7 +93,7 @@
     </div>
     <div class="tab-content" id="tab-events"><div class="panel-section"><h3>World Event Log</h3><div class="event-log" id="eventLog"></div></div></div>
     <div class="tab-content" id="tab-stats" style="display:none"><div class="panel-section"><h3>Global Statistics</h3><div class="stat-grid" id="statGrid"></div></div><div class="panel-section"><h3>Environment & Resources</h3><div id="envList"></div></div></div>
-    <div class="tab-content" id="tab-focus" style="display:none"><div class="panel-section"><h3>Currently Focused</h3><div id="focusPanel"><div style="color:var(--muted);font-size:.85rem">Click a nation, city or person. Zoom in to see real streets, houses and walking people.</div></div></div></div>
+    <div class="tab-content" id="tab-focus" style="display:none"><div class="panel-section"><h3>Currently Focused</h3><div id="focusPanel"><div style="color:var(--muted);font-size:.85rem">Click a city then keep zooming in. Streets and houses will appear automatically.</div></div></div></div>
     <div class="tab-content" id="tab-people" style="display:none"><div class="panel-section"><h3>Living People (sample)</h3><div id="peopleList"></div></div></div>
     <div class="tab-content" id="tab-tech" style="display:none"><div class="panel-section"><h3>Technology Tree</h3><div id="techList"></div></div></div>
   </div>
@@ -106,21 +103,14 @@
     <span><div class="dot" style="background:#166534"></div>Forest</span>
     <span><div class="dot" style="background:#0c4a6e"></div>Ocean</span>
     <span><div class="dot" style="background:#fbbf24"></div>City</span>
-    <span><div class="dot" style="background:#94a3b8"></div>Streets</span>
-    <span><div class="dot" style="background:#22c55e"></div>Houses</span>
+    <span><div class="dot" style="background:#64748b"></div>Streets</span>
+    <span><div class="dot" style="background:#86efac"></div>Houses</span>
     <span><div class="dot" style="background:#f472b6"></div>People</span>
   </div>
-  <div>Wheel = zoom (up to 80×) • Drag = pan • Streets & walking people appear as you zoom into cities</div>
+  <div>Wheel = zoom (now up to 150×) • Drag = pan • Zoom into any city to see real streets + houses</div>
 </footer>
 
 <script>
-// ============================================================
-// REALISTIC DEEP-ZOOM CIVILIZATION SIMULATOR
-// Zoomed-out = world map
-// Zoom into a city = procedural streets, buildings, sidewalks
-// Zoom further = detailed houses + animated walking people
-// ============================================================
-
 const canvas = document.getElementById('world');
 const ctx = canvas.getContext('2d');
 const wrap = document.getElementById('canvasWrap');
@@ -138,8 +128,8 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Camera
-const cam = { x: 80, y: 45, zoom: 1, targetZoom: 1, minZoom: 0.55, maxZoom: 80, dragging: false, lastMX: 0, lastMY: 0 };
+// Higher max zoom + smoother feel
+const cam = { x: 80, y: 45, zoom: 1, targetZoom: 1, minZoom: 0.5, maxZoom: 150, dragging: false, lastMX: 0, lastMY: 0 };
 
 function w2s(wx, wy) {
   return { x: (wx - cam.x) * cam.zoom + cssW / 2, y: (wy - cam.y) * cam.zoom + cssH / 2 };
@@ -148,7 +138,6 @@ function s2w(sx, sy) {
   return { x: (sx - cssW / 2) / cam.zoom + cam.x, y: (sy - cssH / 2) / cam.zoom + cam.y };
 }
 
-// World constants
 const MAP_W = 160, MAP_H = 90;
 const START_YEAR = -12000, END_YEAR = 2025;
 
@@ -222,17 +211,16 @@ function personName(sex){return (sex==='M'?rand(FIRST_M):rand(FIRST_F))+' '+rand
 
 let nextId = 1;
 
-// ---------- Agents ----------
 class Human {
   constructor(x, y, year = state.year, sex = null) {
     this.id = nextId++;
     this.x = x; this.y = y;
-    this.vx = 0; this.vy = 0; // walking velocity
+    this.vx = 0; this.vy = 0;
     this.birth = year;
     this.sex = sex || (Math.random() < 0.5 ? 'M' : 'F');
     this.name = personName(this.sex);
     this.spouse = null; this.children = []; this.parents = [];
-    this.family = null; this.city = null; this.house = null;
+    this.family = null; this.city = null;
     this.alive = true; this.health = 0.65 + Math.random() * 0.35;
     this.job = 'hunter-gatherer';
     this.walkTimer = Math.random() * 4;
@@ -249,9 +237,11 @@ class Family {
 class Building {
   constructor(city, lx, ly, w, h, type) {
     this.city = city; this.lx = lx; this.ly = ly; this.w = w; this.h = h;
-    this.type = type; // house, shop, fastfood, factory, park
-    this.residents = [];
-    this.color = type === 'house' ? '#86efac' : type === 'shop' ? '#93c5fd' : type === 'fastfood' ? '#fca5a5' : type === 'factory' ? '#a8a29e' : '#bbf7d0';
+    this.type = type;
+    this.color = type === 'house' ? '#86efac' :
+                 type === 'shop' ? '#93c5fd' :
+                 type === 'fastfood' ? '#fca5a5' :
+                 type === 'factory' ? '#a8a29e' : '#bbf7d0';
   }
 }
 
@@ -260,38 +250,38 @@ class City {
     this.x = x; this.y = y; this.name = name;
     this.founded = state.year; this.pop = 80 + Math.floor(Math.random() * 120);
     this.level = 1; this.nation = null;
-    this.buildings = []; this.streets = []; // procedural layout
+    this.buildings = []; this.streets = [];
     this.layoutReady = false;
     this.stores = 0; this.fastfood = 0;
+    this.localSize = 28; // bigger city area so houses are easier to see
   }
-  // Generate a realistic local street grid + buildings when first needed
   ensureLayout() {
     if (this.layoutReady) return;
     this.layoutReady = true;
-    const size = 22 + Math.min(30, Math.floor(Math.log10(this.pop + 10) * 12)); // local world units
-    this.localSize = size;
+    const size = this.localSize;
+    const block = 2.8;
+
     // Street grid
-    const block = 3.2;
     for (let i = -size/2; i <= size/2; i += block) {
-      this.streets.push({ x1: -size/2, y1: i, x2: size/2, y2: i, main: Math.abs(i) < 0.5 });
-      this.streets.push({ x1: i, y1: -size/2, x2: i, y2: size/2, main: Math.abs(i) < 0.5 });
+      this.streets.push({ x1: -size/2, y1: i, x2: size/2, y2: i, main: Math.abs(i) < 0.4 });
+      this.streets.push({ x1: i, y1: -size/2, x2: i, y2: size/2, main: Math.abs(i) < 0.4 });
     }
-    // Buildings along streets
-    const count = Math.min(120, 12 + Math.floor(this.pop / 60));
+
+    // More buildings, larger size
+    const count = Math.min(140, 18 + Math.floor(this.pop / 50));
     for (let i = 0; i < count; i++) {
-      const lx = (Math.random() - 0.5) * (size - 2);
-      const ly = (Math.random() - 0.5) * (size - 2);
-      // snap roughly to street sides
-      const sx = Math.round(lx / block) * block + (Math.random() < 0.5 ? 0.9 : -0.9);
-      const sy = Math.round(ly / block) * block + (Math.random() < 0.5 ? 0.9 : -0.9);
-      const w = 0.7 + Math.random() * 1.1;
-      const h = 0.7 + Math.random() * 1.1;
+      const lx = (Math.random() - 0.5) * (size - 3);
+      const ly = (Math.random() - 0.5) * (size - 3);
+      const sx = Math.round(lx / block) * block + (Math.random() < 0.5 ? 1.0 : -1.0);
+      const sy = Math.round(ly / block) * block + (Math.random() < 0.5 ? 1.0 : -1.0);
+      const w = 1.1 + Math.random() * 1.4;   // larger buildings
+      const h = 1.1 + Math.random() * 1.4;
       let type = 'house';
       const r = Math.random();
-      if (r < 0.08 && state.tech.fastfood) type = 'fastfood';
-      else if (r < 0.18 && state.tech.supermarket) type = 'shop';
-      else if (r < 0.22 && state.tech.steam) type = 'factory';
-      else if (r < 0.28) type = 'park';
+      if (r < 0.09 && state.tech.fastfood) type = 'fastfood';
+      else if (r < 0.20 && state.tech.supermarket) type = 'shop';
+      else if (r < 0.25 && state.tech.steam) type = 'factory';
+      else if (r < 0.32) type = 'park';
       this.buildings.push(new Building(this, sx, sy, w, h, type));
       if (type === 'shop') this.stores++;
       if (type === 'fastfood') this.fastfood++;
@@ -306,7 +296,6 @@ class Nation {
   }
 }
 
-// ---------- Map ----------
 function noise(x, y) {
   const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
   return n - Math.floor(n);
@@ -371,7 +360,6 @@ function countEnv() {
   Object.assign(state.environment, c);
 }
 
-// ---------- Simulation ----------
 function logEvent(type, msg, year = state.year) {
   state.events.unshift({ year, type, msg });
   if (state.events.length > 100) state.events.pop();
@@ -432,8 +420,8 @@ function spawnFirstCities() {
     const c = new City(x, y, names[i] || cityName());
     c.pop = 1800 + Math.floor(Math.random()*6000); c.level = 2;
     state.cities.push(c);
-    for (let j = 0; j < 28; j++) {
-      const h = new Human(x+(Math.random()-0.5)*4, y+(Math.random()-0.5)*4);
+    for (let j = 0; j < 30; j++) {
+      const h = new Human(x+(Math.random()-0.5)*5, y+(Math.random()-0.5)*5);
       h.city = c; h.job = 'farmer'; state.humans.push(h);
     }
   }
@@ -577,30 +565,28 @@ function updatePop() {
   state.population = Math.floor(p);
 }
 
-// Walking animation for people (called every frame when zoomed in)
 function updateWalking(dt) {
-  if (cam.zoom < 8) return;
-  const speed = 0.35;
+  if (cam.zoom < 6) return;
+  const speed = 0.4;
   state.humans.forEach(h => {
     if (!h.alive) return;
     h.walkTimer -= dt;
     if (h.walkTimer <= 0) {
-      // pick new nearby target (prefer city streets if in city)
-      if (h.city && cam.zoom > 10) {
+      if (h.city && cam.zoom > 8) {
         h.city.ensureLayout();
         const b = h.city.buildings[Math.floor(Math.random()*h.city.buildings.length)];
         if (b) {
-          h.targetX = h.city.x + b.lx + (Math.random()-0.5)*1.5;
-          h.targetY = h.city.y + b.ly + (Math.random()-0.5)*1.5;
+          h.targetX = h.city.x + b.lx + (Math.random()-0.5)*2;
+          h.targetY = h.city.y + b.ly + (Math.random()-0.5)*2;
         } else {
-          h.targetX = h.x + (Math.random()-0.5)*6;
-          h.targetY = h.y + (Math.random()-0.5)*6;
+          h.targetX = h.x + (Math.random()-0.5)*8;
+          h.targetY = h.y + (Math.random()-0.5)*8;
         }
       } else {
         h.targetX = h.x + (Math.random()-0.5)*8;
         h.targetY = h.y + (Math.random()-0.5)*8;
       }
-      h.walkTimer = 2 + Math.random()*5;
+      h.walkTimer = 1.8 + Math.random()*4;
     }
     const dx = h.targetX - h.x, dy = h.targetY - h.y;
     const dist = Math.hypot(dx, dy);
@@ -630,13 +616,14 @@ function tick() {
   updatePop(); state.era = getEra(state.year); updateUI();
 }
 
-// ---------- REALISTIC RENDERING ----------
+// ========== GOOGLE-MAPS STYLE RENDERING ==========
 function getZoomLevel() {
-  if (cam.zoom < 2.2) return 'world';
-  if (cam.zoom < 6) return 'region';
+  if (cam.zoom < 2.5) return 'world';
+  if (cam.zoom < 7) return 'region';
   if (cam.zoom < 14) return 'city';
-  if (cam.zoom < 28) return 'district';
-  return 'street';
+  if (cam.zoom < 28) return 'streets';
+  if (cam.zoom < 55) return 'buildings';
+  return 'street-detail';
 }
 
 function drawTerrain() {
@@ -646,7 +633,6 @@ function drawTerrain() {
   const startY = Math.max(0, Math.floor(cam.y - cssH/(2*cam.zoom) - 2));
   const endY = Math.min(MAP_H, Math.ceil(cam.y + cssH/(2*cam.zoom) + 2));
 
-  // When highly zoomed, we still draw terrain as a soft background under cities
   for (let y = startY; y < endY; y++) {
     for (let x = startX; x < endX; x++) {
       const t = terrain[y*MAP_W + x];
@@ -661,27 +647,27 @@ function drawTerrain() {
       else col = '#1a3a2a';
       const s = w2s(x, y);
       ctx.fillStyle = col;
-      ctx.fillRect(s.x, s.y, cell+0.7, cell+0.7);
+      ctx.fillRect(s.x, s.y, cell+0.8, cell+0.8);
     }
   }
 }
 
 function drawCityDetailed(c) {
   c.ensureLayout();
-  const size = c.localSize || 24;
+  const size = c.localSize;
 
-  // Ground plate (city area)
+  // City ground plate
   const tl = w2s(c.x - size/2, c.y - size/2);
   const br = w2s(c.x + size/2, c.y + size/2);
   const gw = br.x - tl.x, gh = br.y - tl.y;
 
-  // Soft ground
-  ctx.fillStyle = '#2d3748';
+  // Base ground
+  ctx.fillStyle = '#334155';
   ctx.fillRect(tl.x, tl.y, gw, gh);
 
-  // Grass patches / parks base
-  ctx.fillStyle = '#1a2e1a';
-  ctx.fillRect(tl.x + gw*0.05, tl.y + gh*0.05, gw*0.9, gh*0.9);
+  // Slightly lighter inner area
+  ctx.fillStyle = '#3f4b5c';
+  ctx.fillRect(tl.x + gw*0.03, tl.y + gh*0.03, gw*0.94, gh*0.94);
 
   // Streets
   c.streets.forEach(st => {
@@ -689,107 +675,91 @@ function drawCityDetailed(c) {
     const b = w2s(c.x + st.x2, c.y + st.y2);
     ctx.beginPath();
     ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-    ctx.strokeStyle = st.main ? '#64748b' : '#475569';
-    ctx.lineWidth = st.main ? Math.max(3, cam.zoom * 0.22) : Math.max(1.8, cam.zoom * 0.14);
-    ctx.lineCap = 'square';
+    ctx.strokeStyle = st.main ? '#94a3b8' : '#64748b';
+    ctx.lineWidth = st.main ? Math.max(4, cam.zoom * 0.28) : Math.max(2.5, cam.zoom * 0.18);
+    ctx.lineCap = 'butt';
     ctx.stroke();
-    // sidewalk hint
-    if (cam.zoom > 18) {
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = Math.max(1, cam.zoom * 0.06);
-      ctx.stroke();
-    }
   });
 
-  // Buildings
+  // Buildings – always visible once layout exists
   c.buildings.forEach(b => {
     const s = w2s(c.x + b.lx - b.w/2, c.y + b.ly - b.h/2);
-    const sw = b.w * cam.zoom, sh = b.h * cam.zoom;
-    // shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    ctx.fillRect(s.x + 2, s.y + 2, sw, sh);
-    // body
+    const sw = b.w * cam.zoom;
+    const sh = b.h * cam.zoom;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(s.x + 3, s.y + 3, sw, sh);
+
+    // Building body
     ctx.fillStyle = b.color;
     ctx.fillRect(s.x, s.y, sw, sh);
-    // roof / detail
-    if (cam.zoom > 16) {
-      ctx.fillStyle = 'rgba(0,0,0,0.15)';
-      ctx.fillRect(s.x, s.y, sw, sh * 0.25);
-      // windows
-      if (b.type === 'house' || b.type === 'shop') {
-        ctx.fillStyle = '#fef08a';
-        const wx = s.x + sw * 0.2, wy = s.y + sh * 0.4;
-        ctx.fillRect(wx, wy, sw*0.2, sh*0.25);
-        ctx.fillRect(wx + sw*0.4, wy, sw*0.2, sh*0.25);
-      }
+
+    // Roof edge
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(s.x, s.y, sw, sh * 0.22);
+
+    // Windows (appear earlier now)
+    if (cam.zoom > 18 && (b.type === 'house' || b.type === 'shop' || b.type === 'fastfood')) {
+      ctx.fillStyle = '#fef08a';
+      const wx = s.x + sw * 0.18;
+      const wy = s.y + sh * 0.38;
+      ctx.fillRect(wx, wy, sw * 0.22, sh * 0.28);
+      ctx.fillRect(wx + sw * 0.42, wy, sw * 0.22, sh * 0.28);
     }
-    // label for special buildings
-    if (cam.zoom > 22 && (b.type === 'fastfood' || b.type === 'shop')) {
-      ctx.fillStyle = '#fff';
-      ctx.font = `${Math.max(8, cam.zoom*0.28)}px Inter`;
+
+    // Icons for special buildings
+    if (cam.zoom > 25) {
+      ctx.font = `${Math.max(10, cam.zoom * 0.32)}px serif`;
       ctx.textAlign = 'center';
-      ctx.fillText(b.type === 'fastfood' ? '🍔' : '🏪', s.x + sw/2, s.y - 3);
+      ctx.fillStyle = '#fff';
+      if (b.type === 'fastfood') ctx.fillText('🍔', s.x + sw/2, s.y - 4);
+      else if (b.type === 'shop') ctx.fillText('🏪', s.x + sw/2, s.y - 4);
     }
   });
 
   // City name
-  if (cam.zoom < 35) {
-    const s = w2s(c.x, c.y - size/2 - 1);
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.font = `bold ${Math.max(11, 13 * Math.min(cam.zoom*0.15, 1.8))}px Inter`;
+  if (cam.zoom < 60) {
+    const s = w2s(c.x, c.y - size/2 - 1.2);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = `bold ${Math.max(12, 14 * Math.min(cam.zoom * 0.12, 1.6))}px Inter`;
     ctx.textAlign = 'center';
     ctx.fillText(c.name, s.x, s.y);
   }
 }
 
 function drawPeople() {
-  if (cam.zoom < 7) return;
-  const maxDraw = cam.zoom > 40 ? 1200 : cam.zoom > 20 ? 600 : 250;
+  if (cam.zoom < 8) return;
+  const maxDraw = cam.zoom > 50 ? 1400 : cam.zoom > 25 ? 700 : 300;
   let drawn = 0;
   for (const h of state.humans) {
     if (!h.alive || drawn >= maxDraw) continue;
     const s = w2s(h.x, h.y);
-    if (s.x < -20 || s.x > cssW+20 || s.y < -20 || s.y > cssH+20) continue;
+    if (s.x < -30 || s.x > cssW+30 || s.y < -30 || s.y > cssH+30) continue;
     drawn++;
 
-    const r = cam.zoom > 40 ? 6.5 : cam.zoom > 25 ? 4.5 : cam.zoom > 14 ? 3.2 : 2.2;
+    const r = cam.zoom > 50 ? 7 : cam.zoom > 30 ? 5 : cam.zoom > 18 ? 3.8 : 2.6;
 
-    // simple body
+    // Body
     ctx.beginPath();
     ctx.arc(s.x, s.y, r, 0, Math.PI*2);
     ctx.fillStyle = h.sex === 'M' ? '#60a5fa' : '#f472b6';
     ctx.fill();
-    // head highlight
-    if (cam.zoom > 30) {
+
+    // Head
+    if (cam.zoom > 28) {
       ctx.beginPath();
-      ctx.arc(s.x, s.y - r*0.35, r*0.55, 0, Math.PI*2);
+      ctx.arc(s.x, s.y - r*0.4, r*0.55, 0, Math.PI*2);
       ctx.fillStyle = '#fde68a';
       ctx.fill();
     }
-    // walking direction indicator
-    if (cam.zoom > 22 && (Math.abs(h.vx) > 0.01 || Math.abs(h.vy) > 0.01)) {
-      ctx.beginPath();
-      ctx.moveTo(s.x, s.y);
-      ctx.lineTo(s.x + h.vx * 12, s.y + h.vy * 12);
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-    }
-    // name
-    if (cam.zoom > 38) {
+
+    // Name
+    if (cam.zoom > 45) {
       ctx.fillStyle = '#fff';
-      ctx.font = '9px Inter';
+      ctx.font = '10px Inter';
       ctx.textAlign = 'center';
-      ctx.fillText(h.name.split(' ')[0], s.x, s.y - r - 5);
-    }
-    // spouse link
-    if (h.spouse && h.spouse.alive && cam.zoom > 28) {
-      const sp = w2s(h.spouse.x, h.spouse.y);
-      ctx.beginPath();
-      ctx.moveTo(s.x, s.y); ctx.lineTo(sp.x, sp.y);
-      ctx.strokeStyle = 'rgba(244,114,182,0.3)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      ctx.fillText(h.name.split(' ')[0], s.x, s.y - r - 6);
     }
   }
 }
@@ -798,78 +768,84 @@ function draw() {
   ctx.clearRect(0, 0, cssW, cssH);
   const level = getZoomLevel();
 
-  // Always draw base terrain
   drawTerrain();
 
-  // Nations (low zoom)
+  // Nations
   if (level === 'world' || level === 'region') {
     state.nations.forEach(n => {
       if (!n.capital) return;
       const s = w2s(n.capital.x, n.capital.y);
       ctx.beginPath();
-      ctx.arc(s.x, s.y, 16 + Math.min(28, n.cities.length*2.5), 0, Math.PI*2);
-      ctx.strokeStyle = 'rgba(59,130,246,0.4)';
-      ctx.lineWidth = 2;
+      ctx.arc(s.x, s.y, 18 + Math.min(30, n.cities.length*2.5), 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(59,130,246,0.45)';
+      ctx.lineWidth = 2.5;
       ctx.stroke();
-      if (cam.zoom > 1.1) {
-        ctx.fillStyle = 'rgba(255,255,255,0.75)';
-        ctx.font = `bold ${Math.max(10, 11*Math.min(cam.zoom,1.8))}px Inter`;
+      if (cam.zoom > 1.2) {
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.font = `bold ${Math.max(11, 12*Math.min(cam.zoom,1.9))}px Inter`;
         ctx.textAlign = 'center';
-        ctx.fillText(n.name, s.x, s.y - 20);
+        ctx.fillText(n.name, s.x, s.y - 22);
       }
     });
   }
 
-  // Cities – switch to detailed rendering when close enough
+  // Cities – progressive detail
   state.cities.forEach(c => {
     const dist = Math.hypot(c.x - cam.x, c.y - cam.y);
-    const screenR = 4 + Math.log10(c.pop+1)*2;
-    // If zoomed in close to this city, draw full street layout
-    if (cam.zoom > 8 && dist < (c.localSize || 24) * 0.7 + 8) {
+    const inView = dist < (c.localSize * 0.8 + 15);
+
+    // Show detailed streets + houses as soon as zoom is high enough AND we are near the city
+    if (cam.zoom >= 6 && inView) {
       drawCityDetailed(c);
     } else {
-      // Simple marker
+      // Simple city marker
       const s = w2s(c.x, c.y);
-      if (s.x < -50 || s.x > cssW+50 || s.y < -50 || s.y > cssH+50) return;
-      const r = Math.min(20, screenR) * Math.min(1.3, cam.zoom*0.3 + 0.5);
+      if (s.x < -60 || s.x > cssW+60 || s.y < -60 || s.y > cssH+60) return;
+      const r = Math.min(22, 4 + Math.log10(c.pop+1)*2.6) * Math.min(1.4, cam.zoom*0.35 + 0.5);
       ctx.beginPath();
       ctx.arc(s.x, s.y, r, 0, Math.PI*2);
       ctx.fillStyle = c.level >= 4 ? '#f59e0b' : c.level >= 3 ? '#fbbf24' : '#fde68a';
       ctx.fill();
       ctx.strokeStyle = '#78350f';
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.5;
       ctx.stroke();
-      if (cam.zoom > 1.4) {
+      if (cam.zoom > 1.5) {
         ctx.fillStyle = '#fff';
-        ctx.font = `${Math.max(9, 10*Math.min(cam.zoom*0.35,1.5))}px Inter`;
+        ctx.font = `${Math.max(10, 11*Math.min(cam.zoom*0.4,1.6))}px Inter`;
         ctx.textAlign = 'center';
-        ctx.fillText(c.name, s.x, s.y - r - 4);
+        ctx.fillText(c.name, s.x, s.y - r - 5);
       }
     }
   });
 
-  // People (animated)
   drawPeople();
 
-  // Focus ring
+  // Focus highlight
   if (state.focus) {
-    let fx, fy, fr = 14;
-    if (state.focusType === 'city') { fx = state.focus.x; fy = state.focus.y; fr = 18; }
-    else if (state.focusType === 'nation') { fx = state.focus.capital.x; fy = state.focus.capital.y; fr = 30; }
-    else if (state.focusType === 'person') { fx = state.focus.x; fy = state.focus.y; fr = 10; }
+    let fx, fy, fr = 16;
+    if (state.focusType === 'city') { fx = state.focus.x; fy = state.focus.y; fr = 20; }
+    else if (state.focusType === 'nation') { fx = state.focus.capital.x; fy = state.focus.capital.y; fr = 32; }
+    else if (state.focusType === 'person') { fx = state.focus.x; fy = state.focus.y; fr = 12; }
     if (fx !== undefined) {
       const s = w2s(fx, fy);
       ctx.beginPath();
-      ctx.arc(s.x, s.y, fr * Math.min(1.2, cam.zoom*0.15+0.4), 0, Math.PI*2);
+      ctx.arc(s.x, s.y, fr * Math.min(1.3, cam.zoom*0.12+0.5), 0, Math.PI*2);
       ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 3;
       ctx.stroke();
     }
   }
 
-  // Badges
-  const lvlName = {world:'World View',region:'Regions & Nations',city:'Cities',district:'Districts & Streets',street:'Street Level — Walking People'}[level];
-  document.getElementById('zoomBadge').textContent = `Zoom: ${cam.zoom.toFixed(1)}× — ${lvlName}`;
+  // Zoom badge with clear level name
+  const names = {
+    world: 'World View',
+    region: 'Regions & Nations',
+    city: 'City Overview',
+    streets: 'Streets Appearing',
+    buildings: 'Houses & Buildings',
+    'street-detail': 'Street Level – People Walking'
+  };
+  document.getElementById('zoomBadge').textContent = `Zoom: ${cam.zoom.toFixed(1)}× — ${names[level]}`;
   updateBreadcrumb();
 }
 
@@ -885,7 +861,6 @@ function updateBreadcrumb() {
   document.getElementById('breadcrumb').innerHTML = html;
 }
 
-// ---------- UI ----------
 function renderEvents() {
   document.getElementById('eventLog').innerHTML = state.events.slice(0,35).map(e => {
     const y = e.year < 0 ? Math.abs(e.year)+' BCE' : e.year+' CE';
@@ -937,7 +912,7 @@ function updateUI() {
 function renderFocusPanel() {
   const panel = document.getElementById('focusPanel');
   if (!state.focus) {
-    panel.innerHTML = '<div style="color:var(--muted);font-size:.85rem">Click a nation, city or person. Zoom deep into any city to see real streets, houses, shops and people walking around.</div>';
+    panel.innerHTML = '<div style="color:var(--muted);font-size:.85rem">1. Let the simulation run until cities appear<br>2. Click a yellow city marker<br>3. Keep zooming in with the mouse wheel<br>→ Streets and green houses will appear</div>';
     return;
   }
   if (state.focusType === 'person') {
@@ -959,8 +934,8 @@ function renderFocusPanel() {
       <div class="res-item"><span>Level</span><span>${['','Village','Town','City','Metropolis'][c.level]}</span></div>
       <div class="res-item"><span>Founded</span><span>${c.founded<0?Math.abs(c.founded)+' BCE':c.founded+' CE'}</span></div>
       <div class="res-item"><span>Nation</span><span>${c.nation?c.nation.name:'Independent'}</span></div>
-      <div class="res-item"><span>Buildings</span><span>${c.buildings.length||'— (zoom in)'}</span></div>
-      <button class="focus-btn" onclick="zoomToCity()">Zoom into Streets</button>`;
+      <div class="res-item"><span>Buildings</span><span>${c.buildings.length || 'Zoom in to generate'}</span></div>
+      <button class="focus-btn" onclick="zoomToCity()">Zoom into Streets & Houses</button>`;
   } else if (state.focusType === 'nation') {
     const n = state.focus;
     panel.innerHTML = `
@@ -983,19 +958,19 @@ window.zoomToPerson = function(id) {
   const h = state.humans.find(p => p.id === id);
   if (!h) return;
   state.focus = h; state.focusType = 'person';
-  cam.x = h.x; cam.y = h.y; cam.targetZoom = 45;
+  cam.x = h.x; cam.y = h.y; cam.targetZoom = 70;
   renderFocusPanel();
 };
 window.zoomToCity = function() {
   if (state.focusType !== 'city') return;
   const c = state.focus;
-  cam.x = c.x; cam.y = c.y; cam.targetZoom = 22;
+  cam.x = c.x; cam.y = c.y; cam.targetZoom = 25;
   c.ensureLayout();
 };
 window.zoomToNation = function() {
   if (state.focusType !== 'nation') return;
   const n = state.focus;
-  cam.x = n.capital.x; cam.y = n.capital.y; cam.targetZoom = 4;
+  cam.x = n.capital.x; cam.y = n.capital.y; cam.targetZoom = 4.5;
 };
 window.resetView = function() {
   cam.x = MAP_W/2; cam.y = MAP_H/2; cam.targetZoom = 1;
@@ -1003,13 +978,12 @@ window.resetView = function() {
   renderFocusPanel();
 };
 
-// ---------- Input ----------
+// Input
 wrap.addEventListener('wheel', e => {
   e.preventDefault();
-  const factor = e.deltaY > 0 ? 0.82 : 1.22;
+  const factor = e.deltaY > 0 ? 0.78 : 1.28;
   const mouse = s2w(e.offsetX, e.offsetY);
   cam.targetZoom = Math.max(cam.minZoom, Math.min(cam.maxZoom, cam.zoom * factor));
-  // keep point under cursor stable
   const after = s2w(e.offsetX, e.offsetY);
   cam.x += mouse.x - after.x;
   cam.y += mouse.y - after.y;
@@ -1032,8 +1006,8 @@ canvas.addEventListener('click', e => {
   const rect = canvas.getBoundingClientRect();
   const w = s2w(e.clientX - rect.left, e.clientY - rect.top);
 
-  if (cam.zoom > 12) {
-    let closest = null, bestD = 1.5;
+  if (cam.zoom > 15) {
+    let closest = null, bestD = 2;
     state.humans.forEach(h => {
       if (!h.alive) return;
       const d = Math.hypot(h.x - w.x, h.y - w.y);
@@ -1047,7 +1021,7 @@ canvas.addEventListener('click', e => {
     }
   }
 
-  let bestCity = null, bestCD = 4;
+  let bestCity = null, bestCD = 5;
   state.cities.forEach(c => {
     const d = Math.hypot(c.x - w.x, c.y - w.y);
     if (d < bestCD) { bestCD = d; bestCity = c; }
@@ -1059,7 +1033,7 @@ canvas.addEventListener('click', e => {
     return;
   }
 
-  let bestN = null, bestND = 14;
+  let bestN = null, bestND = 15;
   state.nations.forEach(n => {
     const d = Math.hypot(n.capital.x - w.x, n.capital.y - w.y);
     if (d < bestND) { bestND = d; bestN = n; }
@@ -1077,8 +1051,8 @@ canvas.addEventListener('mousemove', e => {
   const w = s2w(e.clientX - rect.left, e.clientY - rect.top);
   let info = `World (${w.x.toFixed(1)}, ${w.y.toFixed(1)})`;
 
-  if (cam.zoom > 10) {
-    let closest = null, bestD = 2.5;
+  if (cam.zoom > 12) {
+    let closest = null, bestD = 3;
     state.humans.forEach(h => {
       if (!h.alive) return;
       const d = Math.hypot(h.x - w.x, h.y - w.y);
@@ -1093,12 +1067,12 @@ canvas.addEventListener('mousemove', e => {
       return;
     }
   }
-  const city = state.cities.find(c => Math.hypot(c.x-w.x, c.y-w.y) < 3);
+  const city = state.cities.find(c => Math.hypot(c.x-w.x, c.y-w.y) < 4);
   if (city) {
     info = `<strong>${city.name}</strong><br>Pop: ${Math.floor(city.pop).toLocaleString()}
       <br>${['','Village','Town','City','Metropolis'][city.level]}
       ${city.nation ? '<br>Nation: '+city.nation.name : ''}
-      <br><em>Zoom in to see streets & people</em>`;
+      <br><em>Keep zooming to see streets & houses</em>`;
   }
   document.getElementById('hoverInfo').innerHTML = info;
 });
@@ -1106,8 +1080,8 @@ canvas.addEventListener('mousemove', e => {
 document.getElementById('btnPlay').onclick = () => { state.running = true; document.getElementById('btnPlay').classList.add('active'); };
 document.getElementById('btnPause').onclick = () => { state.running = false; document.getElementById('btnPlay').classList.remove('active'); };
 document.getElementById('btnReset').onclick = () => { initWorld(); state.running = true; document.getElementById('btnPlay').classList.add('active'); };
-document.getElementById('btnZoomIn').onclick = () => { cam.targetZoom = Math.min(cam.maxZoom, cam.zoom * 1.45); };
-document.getElementById('btnZoomOut').onclick = () => { cam.targetZoom = Math.max(cam.minZoom, cam.zoom * 0.68); };
+document.getElementById('btnZoomIn').onclick = () => { cam.targetZoom = Math.min(cam.maxZoom, cam.zoom * 1.5); };
+document.getElementById('btnZoomOut').onclick = () => { cam.targetZoom = Math.max(cam.minZoom, cam.zoom * 0.65); };
 document.getElementById('btnResetView').onclick = () => resetView();
 
 document.querySelectorAll('[data-speed]').forEach(btn => {
@@ -1126,9 +1100,8 @@ document.querySelectorAll('.tab').forEach(tab => {
   };
 });
 
-function updateCam() { cam.zoom += (cam.targetZoom - cam.zoom) * 0.14; }
+function updateCam() { cam.zoom += (cam.targetZoom - cam.zoom) * 0.16; }
 
-// Main loop
 let last = performance.now(), acc = 0;
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000);

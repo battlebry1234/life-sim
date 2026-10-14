@@ -6,70 +6,80 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #0a0c10;
+    background: #07090e;
     color: #e0e6f0;
-    font-family: system-ui, sans-serif;
+    font-family: system-ui, -apple-system, sans-serif;
     overflow: hidden;
     height: 100vh;
     display: flex;
     flex-direction: column;
   }
   #topBar {
-    background: #12151c;
-    padding: 12px 20px;
+    background: #10131a;
+    padding: 10px 20px;
     display: flex;
     align-items: center;
-    gap: 30px;
-    border-bottom: 1px solid #1e2430;
-    z-index: 10;
+    gap: 28px;
+    border-bottom: 1px solid #1c2230;
+    z-index: 20;
   }
   .year {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
     color: #5b9cff;
-    min-width: 220px;
+    min-width: 200px;
   }
   .stat {
-    font-size: 14px;
+    font-size: 13px;
     color: #8b93a7;
   }
-  .stat b { color: #e0e6f0; font-size: 16px; }
+  .stat b {
+    color: #e0e6f0;
+    font-size: 15px;
+  }
   #canvas {
     flex: 1;
     display: block;
-    background: radial-gradient(ellipse at center, #11151d 0%, #0a0c10 70%);
+    background: radial-gradient(ellipse at center, #0e1219 0%, #07090e 70%);
   }
-  #overlay {
+  #side {
     position: absolute;
     top: 70px;
-    left: 20px;
-    background: rgba(18,21,28,0.85);
-    padding: 16px 20px;
+    left: 16px;
+    width: 240px;
+    background: rgba(16,19,26,0.92);
+    border: 1px solid #252b3a;
     border-radius: 12px;
-    border: 1px solid #2a3140;
-    width: 260px;
-    backdrop-filter: blur(8px);
+    padding: 16px;
+    backdrop-filter: blur(10px);
   }
-  .bar-label { font-size: 12px; color: #8b93a7; margin-bottom: 4px; }
+  .label {
+    font-size: 11px;
+    color: #7a8499;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
   .bar {
-    height: 10px;
-    background: #1e2430;
+    height: 9px;
+    background: #1c2230;
     border-radius: 5px;
     overflow: hidden;
     margin-bottom: 14px;
   }
-  .bar-fill {
+  .fill {
     height: 100%;
     border-radius: 5px;
-    transition: width 0.4s;
+    transition: width 0.6s ease;
   }
-  .tech { background: linear-gradient(90deg, #5b9cff, #3dd68c); }
+  .tech   { background: linear-gradient(90deg,#5b9cff,#3dd68c); }
   .houses { background: #ffb347; }
-  .weapons { background: #ff6b6b; }
+  .weapons{ background: #ff6b6b; }
+
   #startScreen {
     position: absolute;
     inset: 0;
-    background: #0a0c10;
+    background: #07090e;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -77,45 +87,59 @@
     z-index: 100;
   }
   #startScreen h1 {
-    font-size: 42px;
-    margin-bottom: 8px;
-    background: linear-gradient(90deg, #5b9cff, #3dd68c);
+    font-size: 40px;
+    margin-bottom: 10px;
+    background: linear-gradient(90deg,#5b9cff,#3dd68c);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
   #startScreen p {
     color: #8b93a7;
-    margin-bottom: 40px;
     text-align: center;
-    max-width: 400px;
+    max-width: 380px;
+    margin-bottom: 36px;
+    line-height: 1.5;
   }
   #startBtn {
     background: #5b9cff;
     color: white;
     border: none;
-    padding: 16px 48px;
-    font-size: 18px;
-    border-radius: 12px;
+    padding: 15px 44px;
+    font-size: 17px;
+    border-radius: 11px;
     cursor: pointer;
     font-weight: 600;
   }
-  #startBtn:hover { background: #4a8aef; }
+  #startBtn:hover { background: #4a8bef; }
+
   .legend {
     position: absolute;
-    bottom: 20px;
-    right: 20px;
-    background: rgba(18,21,28,0.85);
-    padding: 12px 16px;
+    bottom: 18px;
+    right: 18px;
+    background: rgba(16,19,26,0.9);
+    padding: 12px 14px;
     border-radius: 10px;
-    font-size: 13px;
-    border: 1px solid #2a3140;
+    font-size: 12px;
+    border: 1px solid #252b3a;
   }
   .dot {
     display: inline-block;
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
     margin-right: 6px;
+  }
+  #eventFlash {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%,-50%);
+    font-size: 22px;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s;
+    text-shadow: 0 0 20px rgba(0,0,0,0.8);
   }
 </style>
 </head>
@@ -123,9 +147,8 @@
 
 <div id="startScreen">
   <h1>Human Evolution</h1>
-  <p>From the time of the dinosaurs to the future.<br>
-     Watch people live, mate, have babies, build houses, invent weapons and form politics.</p>
-  <button id="startBtn">Start Simulation</button>
+  <p>Watch people move, pair up, have sex, make babies, build houses, invent weapons and form politics — from the age of dinosaurs to the future.</p>
+  <button id="startBtn">Start Watching</button>
 </div>
 
 <div id="topBar">
@@ -133,32 +156,36 @@
   <div class="stat">People <b id="pop">0</b></div>
   <div class="stat">Married <b id="married">0</b></div>
   <div class="stat">Loners <b id="loners">0</b></div>
-  <div class="stat">Babies born <b id="babies">0</b></div>
+  <div class="stat">Babies <b id="babies">0</b></div>
+  <div class="stat">Sex events <b id="sex">0</b></div>
 </div>
 
 <canvas id="canvas"></canvas>
 
-<div id="overlay">
-  <div class="bar-label">Technology</div>
-  <div class="bar"><div class="bar-fill tech" id="techBar" style="width:0%"></div></div>
-  <div class="bar-label">Houses</div>
-  <div class="bar"><div class="bar-fill houses" id="houseBar" style="width:0%"></div></div>
-  <div class="bar-label">Weapons</div>
-  <div class="bar"><div class="bar-fill weapons" id="weaponBar" style="width:0%"></div></div>
-  <div style="margin-top:12px;font-size:13px;color:#8b93a7">
+<div id="side">
+  <div class="label">Technology</div>
+  <div class="bar"><div class="fill tech" id="techBar" style="width:0%"></div></div>
+  <div class="label">Houses</div>
+  <div class="bar"><div class="fill houses" id="houseBar" style="width:0%"></div></div>
+  <div class="label">Weapons</div>
+  <div class="bar"><div class="fill weapons" id="weaponBar" style="width:0%"></div></div>
+  <div style="margin-top:8px;font-size:13px;color:#8b93a7">
     Politics: <span id="politics" style="color:#e0e6f0">None</span>
   </div>
-  <div style="margin-top:6px;font-size:13px;color:#8b93a7">
+  <div style="margin-top:4px;font-size:13px;color:#8b93a7">
     Era: <span id="era" style="color:#3dd68c">Post-Dinosaur</span>
   </div>
 </div>
 
 <div class="legend">
-  <div><span class="dot" style="background:#5b9cff"></span> Male</div>
-  <div><span class="dot" style="background:#ff6b9d"></span> Female</div>
-  <div><span class="dot" style="background:#3dd68c"></span> Married</div>
-  <div><span class="dot" style="background:#ffb347"></span> Baby</div>
+  <div><span class="dot" style="background:#5b9cff"></span>Male</div>
+  <div><span class="dot" style="background:#ff6b9d"></span>Female</div>
+  <div><span class="dot" style="background:#3dd68c"></span>Married</div>
+  <div><span class="dot" style="background:#ffb347"></span>New baby</div>
+  <div><span class="dot" style="background:#aaa"></span>Loner</div>
 </div>
+
+<div id="eventFlash"></div>
 
 <script>
 const canvas = document.getElementById('canvas');
@@ -167,12 +194,12 @@ let W, H;
 
 function resize() {
   W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight - 60;
+  H = canvas.height = window.innerHeight - 52;
 }
 window.addEventListener('resize', resize);
 resize();
 
-// ===================== SIMULATION STATE =====================
+// ========== STATE ==========
 let year = -65000000;
 let agents = [];
 let nextId = 0;
@@ -181,121 +208,139 @@ let houses = 0;
 let weapons = 0;
 let politics = "None";
 let totalBabies = 0;
+let totalSex = 0;
 let running = false;
+let tickCount = 0;
 
-const TECH_NAMES = ["None","Tools","Fire","Language","Agriculture","Metal","Writing","Guns","Industry","Electricity","Computers","Internet","AI","Space","Post-Human"];
-
-// ===================== AGENT =====================
+// ========== AGENT ==========
 class Agent {
   constructor(birth, parents = null) {
     this.id = nextId++;
     this.birth = birth;
     this.sex = Math.random() < 0.5 ? 'M' : 'F';
     this.x = Math.random() * W;
-    this.y = Math.random() * H;
-    this.vx = (Math.random() - 0.5) * 1.2;
-    this.vy = (Math.random() - 0.5) * 1.2;
-    this.r = 5 + Math.random() * 3;
+    this.y = 60 + Math.random() * (H - 80);
+    this.vx = (Math.random() - 0.5) * 0.9;
+    this.vy = (Math.random() - 0.5) * 0.9;
+    this.r = 6;
     this.marriedTo = null;
     this.isBaby = false;
     this.babyTimer = 0;
     this.alive = true;
-    this.libido = 40 + Math.random() * 50;
-    this.social = 30 + Math.random() * 50;
-    this.health = 60 + Math.random() * 30;
+    this.libido = 35 + Math.random() * 55;
+    this.social = 25 + Math.random() * 55;
+    this.health = 55 + Math.random() * 35;
+    this.intelligence = parents
+      ? (parents[0].intelligence + parents[1].intelligence) / 2 + (Math.random() - 0.5) * 8
+      : 9 + Math.random() * 18;
 
     if (parents) {
-      this.intelligence = (parents[0].intelligence + parents[1].intelligence) / 2 + (Math.random()-0.5)*10;
       this.isBaby = true;
-      this.babyTimer = 90; // frames of glowing as baby
-      this.r = 3;
-    } else {
-      this.intelligence = 10 + Math.random() * 20;
+      this.babyTimer = 120;
+      this.r = 4;
+      this.x = parents[0].x + (Math.random() - 0.5) * 40;
+      this.y = parents[0].y + (Math.random() - 0.5) * 40;
     }
   }
 
   age() { return year - this.birth; }
 
   update() {
-    // movement
     this.x += this.vx;
     this.y += this.vy;
-    if (this.x < 10 || this.x > W-10) this.vx *= -1;
-    if (this.y < 10 || this.y > H-10) this.vy *= -1;
 
-    // gentle drift toward center if too far
-    const cx = W/2, cy = H/2;
-    this.vx += (cx - this.x) * 0.00008;
-    this.vy += (cy - this.y) * 0.00008;
+    // bounce
+    if (this.x < 12) { this.x = 12; this.vx *= -1; }
+    if (this.x > W - 12) { this.x = W - 12; this.vx *= -1; }
+    if (this.y < 50) { this.y = 50; this.vy *= -1; }
+    if (this.y > H - 12) { this.y = H - 12; this.vy *= -1; }
 
-    // damping
-    this.vx *= 0.995;
-    this.vy *= 0.995;
+    // soft center pull
+    this.vx += (W / 2 - this.x) * 0.00004;
+    this.vy += (H / 2 - this.y) * 0.00004;
+    this.vx *= 0.993;
+    this.vy *= 0.993;
+
+    // married couples slowly drift toward each other
+    if (this.marriedTo !== null) {
+      const p = agents.find(a => a.id === this.marriedTo);
+      if (p) {
+        this.vx += (p.x - this.x) * 0.0015;
+        this.vy += (p.y - this.y) * 0.0015;
+      }
+    }
 
     if (this.isBaby) {
       this.babyTimer--;
       if (this.babyTimer <= 0) {
         this.isBaby = false;
-        this.r = 5 + Math.random() * 3;
+        this.r = 6;
       }
     }
   }
 
   draw() {
     ctx.beginPath();
-    ctx.arc(this.x, this.y, this.r, 0, Math.PI*2);
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
 
     if (this.isBaby) {
       ctx.fillStyle = '#ffb347';
       ctx.shadowColor = '#ffb347';
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 15;
     } else if (this.marriedTo !== null) {
       ctx.fillStyle = '#3dd68c';
-    } else if (this.sex === 'M') {
-      ctx.fillStyle = '#5b9cff';
+    } else if (this.age() > 32) {
+      // loner – slightly dimmer
+      ctx.fillStyle = this.sex === 'M' ? '#4a7ab8' : '#c45a7a';
     } else {
-      ctx.fillStyle = '#ff6b9d';
+      ctx.fillStyle = this.sex === 'M' ? '#5b9cff' : '#ff6b9d';
     }
     ctx.fill();
     ctx.shadowBlur = 0;
-
-    // tiny ring if loner and older
-    if (this.marriedTo === null && this.age() > 30) {
-      ctx.beginPath();
-      ctx.arc(this.x, this.y, this.r + 3, 0, Math.PI*2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-      ctx.stroke();
-    }
   }
 }
 
-// ===================== INIT =====================
+// ========== HELPERS ==========
+function flash(text, color = '#fff') {
+  const el = document.getElementById('eventFlash');
+  el.textContent = text;
+  el.style.color = color;
+  el.style.opacity = '1';
+  setTimeout(() => el.style.opacity = '0', 900);
+}
+
+// ========== INIT ==========
 function init() {
   agents = [];
-  for (let i = 0; i < 40; i++) {
-    agents.push(new Agent(year - Math.floor(Math.random()*15)));
+  for (let i = 0; i < 55; i++) {
+    agents.push(new Agent(year - Math.floor(Math.random() * 20)));
   }
 }
 
-// ===================== CORE LOGIC (simplified for visual) =====================
+// ========== SIMULATION STEP (slower + more events) ==========
 function step() {
-  // time jumps (accelerated early, slower later)
+  tickCount++;
+
+  // ===== MUCH SLOWER TIME =====
   let stepSize;
-  if (year < -2000000) stepSize = 120000;
-  else if (year < -500000) stepSize = 40000;
-  else if (year < -50000) stepSize = 8000;
-  else if (year < 0) stepSize = 400;
-  else if (year < 1800) stepSize = 30;
-  else stepSize = 8;
+  if (year < -10000000)      stepSize = 25000;   // still a bit fast in deep time
+  else if (year < -1000000)  stepSize = 8000;
+  else if (year < -100000)   stepSize = 2000;
+  else if (year < -10000)    stepSize = 400;
+  else if (year < 0)         stepSize = 80;
+  else if (year < 1500)      stepSize = 25;
+  else if (year < 1900)      stepSize = 12;
+  else                       stepSize = 6;     // modern & future = slow
 
   year += stepSize;
-  if (year > 2300) year = 2300;
+  if (year > 2400) year = 2400;
 
-  // age & die
+  // death
   agents = agents.filter(a => {
     const age = a.age();
-    const deathChance = 0.002 + Math.pow(age/100, 3) * 0.1;
-    if (Math.random() < deathChance || age > 105) {
+    let chance = 0.0012 + Math.pow(age / 95, 3) * 0.09;
+    chance *= Math.max(0.3, 1.1 - tech * 0.04);
+    if (Math.random() < chance || age > 108) {
       if (a.marriedTo !== null) {
         const p = agents.find(x => x.id === a.marriedTo);
         if (p) p.marriedTo = null;
@@ -305,87 +350,104 @@ function step() {
     return true;
   });
 
-  // marriages
-  const singles = agents.filter(a => a.marriedTo === null && a.age() > 16 && a.age() < 55);
+  // ===== MARRIAGES (more frequent) =====
+  const singles = agents.filter(a => !a.marriedTo && a.age() >= 16 && a.age() <= 52);
   const males = singles.filter(a => a.sex === 'M');
   const females = singles.filter(a => a.sex === 'F');
+
   for (let m of males) {
     if (females.length === 0) break;
-    if (Math.random() < 0.08 + tech * 0.01) {
-      const f = females.splice(Math.floor(Math.random()*females.length), 1)[0];
+    // higher chance now
+    if (Math.random() < 0.045 + tech * 0.008) {
+      const idx = Math.floor(Math.random() * females.length);
+      const f = females.splice(idx, 1)[0];
       m.marriedTo = f.id;
       f.marriedTo = m.id;
-      // pull them closer
-      m.vx += (f.x - m.x) * 0.02;
-      m.vy += (f.y - m.y) * 0.02;
+      // small visual pull
+      m.vx += (f.x - m.x) * 0.03;
+      m.vy += (f.y - m.y) * 0.03;
     }
   }
 
-  // sex & babies (married)
+  // ===== SEX + BABIES (actually happens a lot more) =====
   for (let a of agents) {
-    if (a.sex !== 'F' || a.marriedTo === null) continue;
+    if (a.sex !== 'F' || !a.marriedTo) continue;
     const partner = agents.find(x => x.id === a.marriedTo);
     if (!partner) continue;
-    if (a.age() > 15 && a.age() < 45 && Math.random() < 0.04) {
-      if (agents.length < 350) {
+
+    const age = a.age();
+    if (age < 16 || age > 44) continue;
+
+    // sex chance every tick (much higher)
+    if (Math.random() < 0.07) {
+      totalSex++;
+      // pregnancy chance
+      let preg = 0.18 - tech * 0.009;
+      if (Math.random() < preg && agents.length < 380) {
         const baby = new Agent(year, [a, partner]);
-        // spawn near mother
-        baby.x = a.x + (Math.random()-0.5)*30;
-        baby.y = a.y + (Math.random()-0.5)*30;
+        agents.push(baby);
+        totalBabies++;
+        if (Math.random() < 0.3) flash("New baby!", "#ffb347");
+      }
+    }
+  }
+
+  // casual sex for loners (lower rate)
+  const lonely = agents.filter(a => !a.marriedTo && a.age() >= 18 && a.age() <= 48);
+  if (lonely.length >= 2 && Math.random() < 0.03) {
+    const a1 = lonely[Math.floor(Math.random() * lonely.length)];
+    let a2 = lonely[Math.floor(Math.random() * lonely.length)];
+    if (a1.sex !== a2.sex) {
+      totalSex++;
+      if (Math.random() < 0.08 && agents.length < 370) {
+        const baby = new Agent(year, [a1, a2]);
         agents.push(baby);
         totalBabies++;
       }
     }
   }
 
-  // technology growth
-  const avgInt = agents.reduce((s,a) => s + (a.intelligence||15), 0) / (agents.length || 1);
-  tech += (avgInt / 80) * Math.log10(agents.length + 5) * 0.008;
+  // ===== TECHNOLOGY (steady growth) =====
+  const avgInt = agents.reduce((s, a) => s + a.intelligence, 0) / (agents.length || 1);
+  tech += (avgInt / 70) * Math.log10(agents.length + 8) * 0.0045;
   tech = Math.min(14, tech);
 
-  if (tech > 1.5) houses = Math.min(100, houses + 0.3);
-  if (tech > 2.5) weapons = Math.min(100, weapons + 0.25);
-  if (tech > 4) houses = Math.min(100, houses + 0.5);
+  // houses & weapons unlock and grow
+  if (tech > 1.2) houses = Math.min(100, houses + 0.15);
+  if (tech > 2.0) weapons = Math.min(100, weapons + 0.12);
+  if (tech > 4.5) houses = Math.min(100, houses + 0.25);
+  if (tech > 6.5) weapons = Math.min(100, weapons + 0.2);
 
   // politics
-  if (tech < 3) politics = "Bands";
-  else if (tech < 5) politics = "Tribes";
-  else if (tech < 7) politics = "Kingdoms";
-  else if (tech < 9) politics = "Nations";
-  else if (tech < 11) politics = "Global Order";
-  else politics = "AI Age";
+  if (tech < 2.5) politics = "Bands / Kin";
+  else if (tech < 4.5) politics = "Tribes";
+  else if (tech < 6.5) politics = "Early Kingdoms";
+  else if (tech < 8.5) politics = "Nations & Empires";
+  else if (tech < 11) politics = "Modern States";
+  else politics = "Global + AI era";
 
-  // soft population control
-  if (agents.length > 320) {
-    agents.splice(0, agents.length - 300);
+  // soft cap
+  if (agents.length > 360) {
+    agents.sort((a, b) => a.age() - b.age());
+    agents = agents.slice(0, 340);
   }
 }
 
-// ===================== RENDER =====================
+// ========== DRAW ==========
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
-  // faint grid
-  ctx.strokeStyle = 'rgba(255,255,255,0.02)';
-  ctx.lineWidth = 1;
-  for (let x = 0; x < W; x += 80) {
-    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
-  }
-  for (let y = 0; y < H; y += 80) {
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  // very faint grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.015)';
+  for (let x = 0; x < W; x += 70) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
   }
 
-  // draw agents
+  // married links
+  ctx.strokeStyle = 'rgba(61,214,140,0.18)';
+  ctx.lineWidth = 1.2;
   for (let a of agents) {
-    a.update();
-    a.draw();
-  }
-
-  // connection lines for married couples (subtle)
-  ctx.strokeStyle = 'rgba(61,214,140,0.15)';
-  ctx.lineWidth = 1;
-  for (let a of agents) {
-    if (a.marriedTo !== null && a.sex === 'M') {
+    if (a.marriedTo && a.sex === 'M') {
       const p = agents.find(x => x.id === a.marriedTo);
       if (p) {
         ctx.beginPath();
@@ -395,16 +457,22 @@ function draw() {
       }
     }
   }
+
+  // agents
+  for (let a of agents) {
+    a.update();
+    a.draw();
+  }
 }
 
-// ===================== UI UPDATE =====================
+// ========== UI ==========
 function updateUI() {
-  document.getElementById('year').textContent = 'Year ' + year.toLocaleString();
+  document.getElementById('year').textContent = 'Year ' + Math.floor(year).toLocaleString();
   document.getElementById('pop').textContent = agents.length;
-  const married = agents.filter(a => a.marriedTo !== null).length / 2 | 0;
-  document.getElementById('married').textContent = married;
-  document.getElementById('loners').textContent = agents.filter(a => a.marriedTo === null && a.age() > 28).length;
+  document.getElementById('married').textContent = Math.floor(agents.filter(a => a.marriedTo).length / 2);
+  document.getElementById('loners').textContent = agents.filter(a => !a.marriedTo && a.age() > 30).length;
   document.getElementById('babies').textContent = totalBabies;
+  document.getElementById('sex').textContent = totalSex;
 
   document.getElementById('techBar').style.width = (tech / 14 * 100) + '%';
   document.getElementById('houseBar').style.width = houses + '%';
@@ -412,26 +480,28 @@ function updateUI() {
   document.getElementById('politics').textContent = politics;
 
   let era = "Post-Dinosaur";
+  if (year > -2000000) era = "Early Mammals";
   if (year > -300000) era = "Early Humans";
-  if (year > -10000) era = "Agriculture";
+  if (year > -12000) era = "Agriculture";
   if (year > 0) era = "Civilizations";
-  if (year > 1800) era = "Industrial";
+  if (year > 1750) era = "Industrial";
   if (year > 1950) era = "Modern";
-  if (year > 2100) era = "Future";
+  if (year > 2050) era = "Near Future";
   document.getElementById('era').textContent = era;
 }
 
-// ===================== LOOP =====================
+// ========== LOOP ==========
 function loop() {
   if (running) {
-    step();
+    // run several small steps per frame so events feel continuous
+    for (let i = 0; i < 2; i++) step();
     updateUI();
   }
   draw();
   requestAnimationFrame(loop);
 }
 
-// ===================== START =====================
+// ========== START ==========
 document.getElementById('startBtn').onclick = () => {
   document.getElementById('startScreen').style.display = 'none';
   init();

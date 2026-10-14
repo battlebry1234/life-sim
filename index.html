@@ -2,299 +2,1201 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Human Evolution – 10 Years per Minute</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Human Civilization Evolution Simulation</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#05070b;color:#e2e8f0;font-family:system-ui,sans-serif;height:100vh;overflow:hidden;display:flex;flex-direction:column}
-  #bar{background:#0c0f15;padding:11px 18px;display:flex;gap:22px;align-items:center;border-bottom:1px solid #1a2030;z-index:20}
-  .year{font-size:24px;font-weight:700;color:#60a5fa;min-width:200px}
-  .s{font-size:13px;color:#94a3b8}.s b{color:#f1f5f9;font-size:15px}
-  canvas{flex:1;display:block;background:radial-gradient(ellipse at center,#0b0e14 0%,#05070b 70%)}
-  #side{position:absolute;top:64px;left:14px;width:220px;background:rgba(12,15,21,.94);border:1px solid #1c2433;border-radius:12px;padding:14px;backdrop-filter:blur(8px)}
-  .lbl{font-size:11px;color:#64748b;margin-bottom:3px;text-transform:uppercase;letter-spacing:.04em}
-  .bar{height:8px;background:#1c2433;border-radius:4px;overflow:hidden;margin-bottom:12px}
-  .fill{height:100%;border-radius:4px;transition:width .4s}
-  .t{background:linear-gradient(90deg,#60a5fa,#34d399)}.h{background:#fbbf24}.w{background:#f87171}
-  #start{position:absolute;inset:0;background:#05070b;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:50}
-  #start h1{font-size:36px;margin-bottom:8px;background:linear-gradient(90deg,#60a5fa,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-  #start p{color:#94a3b8;text-align:center;max-width:340px;margin-bottom:28px;line-height:1.5}
-  #go{background:#60a5fa;color:#fff;border:none;padding:14px 38px;font-size:16px;border-radius:10px;cursor:pointer;font-weight:600}
-  #go:hover{background:#3b82f6}
-  .leg{position:absolute;bottom:14px;right:14px;background:rgba(12,15,21,.9);padding:10px 12px;border-radius:8px;font-size:12px;border:1px solid #1c2433}
-  .d{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
-  #flash{position:absolute;top:48%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .4s;text-shadow:0 0 20px #000}
-  #phase{position:absolute;top:70px;right:18px;background:rgba(12,15,21,.9);padding:8px 14px;border-radius:8px;font-size:13px;border:1px solid #1c2433}
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0b0f14;
+    --panel: #141a22;
+    --border: #1e2a38;
+    --text: #e6edf5;
+    --muted: #8b9bb0;
+    --accent: #3b82f6;
+    --good: #22c55e;
+    --warn: #f59e0b;
+    --bad: #ef4444;
+    --ocean: #0c4a6e;
+    --land: #1a3a2a;
+    --forest: #166534;
+    --desert: #854d0e;
+    --mountain: #4b5563;
+    --city: #fbbf24;
+    --human: #f472b6;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  header h1 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  header h1 span { color: var(--accent); }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  button {
+    background: #1e293b;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+  }
+  button:hover { background: #334155; border-color: #475569; }
+  button.active { background: var(--accent); border-color: var(--accent); color: white; }
+  button.danger { background: #7f1d1d; border-color: #991b1b; }
+  button.danger:hover { background: #991b1b; }
+
+  .speed-btns button { min-width: 42px; }
+
+  .stats-bar {
+    display: flex;
+    gap: 18px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .stats-bar strong { color: var(--text); }
+
+  main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    background: #020617;
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+  }
+
+  .overlay-info {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    pointer-events: none;
+    max-width: 280px;
+  }
+
+  .sidebar {
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 4px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); background: #1e293b; }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+  }
+
+  .panel-section {
+    margin-bottom: 16px;
+  }
+  .panel-section h3 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .event-log {
+    font-size: 0.78rem;
+    line-height: 1.45;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .event {
+    padding: 6px 0;
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    gap: 8px;
+  }
+  .event .year { color: var(--accent); min-width: 58px; flex-shrink: 0; }
+  .event .msg { color: var(--text); }
+  .event.war .msg { color: var(--bad); }
+  .event.discovery .msg { color: var(--good); }
+  .event.politics .msg { color: #a78bfa; }
+  .event.family .msg { color: #f472b6; }
+  .event.disaster .msg { color: var(--warn); }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .stat-card {
+    background: #0f172a;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .stat-card .label { font-size: 0.7rem; color: var(--muted); }
+  .stat-card .value { font-size: 1.05rem; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+
+  .tech-list, .resource-list {
+    font-size: 0.8rem;
+  }
+  .tech-item, .res-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid #1e293b;
+  }
+  .tech-item.unlocked { color: var(--good); }
+  .tech-item.locked { color: var(--muted); opacity: 0.6; }
+
+  .era-bar {
+    height: 6px;
+    background: #1e293b;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .era-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #166534, #3b82f6, #f59e0b, #ef4444);
+    transition: width 0.3s;
+  }
+
+  footer {
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    padding: 6px 14px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
 </style>
 </head>
 <body>
+<header>
+  <h1>🌍 <span>Civilization</span> Evolution Simulator</h1>
+  <div class="controls">
+    <button id="btnPlay" class="active">▶ Play</button>
+    <button id="btnPause">⏸ Pause</button>
+    <button id="btnReset" class="danger">↺ Reset</button>
+    <div class="speed-btns">
+      <button data-speed="1" class="active">1×</button>
+      <button data-speed="5">5×</button>
+      <button data-speed="20">20×</button>
+      <button data-speed="100">100×</button>
+    </div>
+  </div>
+  <div class="stats-bar">
+    <div>Year: <strong id="yearDisplay">-12000</strong></div>
+    <div>Era: <strong id="eraDisplay">Paleolithic</strong></div>
+    <div>Pop: <strong id="popDisplay">0</strong></div>
+    <div>Cities: <strong id="cityDisplay">0</strong></div>
+    <div>Nations: <strong id="nationDisplay">0</strong></div>
+  </div>
+</header>
 
-<div id="start">
-  <h1>Human Evolution</h1>
-  <p>From after the dinosaurs to the future.<br>
-  Time runs at <b>10 years per real minute</b> once humans appear.<br>
-  People will spawn, marry, have sex and make babies.</p>
-  <button id="go">Start Simulation</button>
-</div>
+<main>
+  <div class="canvas-wrap">
+    <canvas id="world"></canvas>
+    <div class="overlay-info" id="hoverInfo">Hover over the map</div>
+  </div>
 
-<div id="bar">
-  <div class="year" id="year">Year −65,000,000</div>
-  <div class="s">People <b id="pop">0</b></div>
-  <div class="s">Married <b id="mar">0</b></div>
-  <div class="s">Loners <b id="lon">0</b></div>
-  <div class="s">Babies <b id="bab">0</b></div>
-  <div class="s">Sex <b id="sex">0</b></div>
-</div>
+  <div class="sidebar">
+    <div class="tabs">
+      <div class="tab active" data-tab="events">Events</div>
+      <div class="tab" data-tab="stats">Stats</div>
+      <div class="tab" data-tab="tech">Tech</div>
+      <div class="tab" data-tab="society">Society</div>
+    </div>
 
-<canvas id="c"></canvas>
+    <div class="tab-content" id="tab-events">
+      <div class="panel-section">
+        <h3>World Event Log</h3>
+        <div class="event-log" id="eventLog"></div>
+      </div>
+    </div>
 
-<div id="side">
-  <div class="lbl">Technology</div><div class="bar"><div class="fill t" id="tb" style="width:0%"></div></div>
-  <div class="lbl">Houses</div><div class="bar"><div class="fill h" id="hb" style="width:0%"></div></div>
-  <div class="lbl">Weapons</div><div class="bar"><div class="fill w" id="wb" style="width:0%"></div></div>
-  <div style="font-size:13px;color:#94a3b8;margin-top:6px">Politics: <span id="pol" style="color:#e2e8f0">None</span></div>
-  <div style="font-size:13px;color:#94a3b8;margin-top:3px">Era: <span id="era" style="color:#34d399">Post-Dinosaur</span></div>
-</div>
+    <div class="tab-content" id="tab-stats" style="display:none">
+      <div class="panel-section">
+        <h3>Global Statistics</h3>
+        <div class="stat-grid" id="statGrid"></div>
+      </div>
+      <div class="panel-section">
+        <h3>Environment</h3>
+        <div class="resource-list" id="envList"></div>
+      </div>
+    </div>
 
-<div id="phase">Fast-forwarding deep time…</div>
+    <div class="tab-content" id="tab-tech" style="display:none">
+      <div class="panel-section">
+        <h3>Technology Tree</h3>
+        <div class="tech-list" id="techList"></div>
+      </div>
+    </div>
 
-<div class="leg">
-  <div><span class="d" style="background:#60a5fa"></span>Male</div>
-  <div><span class="d" style="background:#f472b6"></span>Female</div>
-  <div><span class="d" style="background:#34d399"></span>Married</div>
-  <div><span class="d" style="background:#fbbf24"></span>Baby</div>
-</div>
-<div id="flash"></div>
+    <div class="tab-content" id="tab-society" style="display:none">
+      <div class="panel-section">
+        <h3>Major Civilizations</h3>
+        <div id="civList"></div>
+      </div>
+      <div class="panel-section">
+        <h3>Social Structure</h3>
+        <div id="socialList"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="legend">
+    <span><div class="dot" style="background:#166534"></div>Forest</span>
+    <span><div class="dot" style="background:#0c4a6e"></div>Ocean</span>
+    <span><div class="dot" style="background:#854d0e"></div>Desert</span>
+    <span><div class="dot" style="background:#4b5563"></div>Mountain</span>
+    <span><div class="dot" style="background:#fbbf24"></div>City</span>
+    <span><div class="dot" style="background:#f472b6"></div>Humans</span>
+    <span><div class="dot" style="background:#22c55e"></div>Crops</span>
+  </div>
+  <div>Click map to inspect • Simulation runs from ~12,000 BCE → Present</div>
+</footer>
 
 <script>
-const canvas = document.getElementById('c');
+// ============================================================
+// HUMAN CIVILIZATION EVOLUTION SIMULATOR
+// A procedural simulation of human history from Paleolithic
+// to the modern era with environment, societies, tech, wars,
+// families, cities, resources, and historical milestones.
+// ============================================================
+
+const canvas = document.getElementById('world');
 const ctx = canvas.getContext('2d');
 let W, H;
-function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight-54}
-addEventListener('resize',resize);resize();
 
-let year = -65000000;
-let agents = [];
-let nextId = 0;
-let tech = 0, houses = 0, weapons = 0;
-let politics = "None";
-let babies = 0, sexCount = 0;
-let running = false;
-let humanMode = false;          // true = real 10 years / minute
-let lastRealTime = 0;
+function resize() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  W = canvas.width = rect.width * devicePixelRatio;
+  H = canvas.height = rect.height * devicePixelRatio;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
 
-class Agent {
-  constructor(birth, parents = null) {
-    this.id = nextId++;
-    this.birth = birth;
+// -------------------- CONFIG --------------------
+const START_YEAR = -12000; // BCE
+const END_YEAR = 2025;
+const MAP_W = 160;
+const MAP_H = 90;
+const CELL = 1; // logical cell size
+
+// -------------------- WORLD STATE --------------------
+const state = {
+  year: START_YEAR,
+  speed: 1,
+  running: true,
+  tickAcc: 0,
+  humans: [],
+  families: [],
+  cities: [],
+  nations: [],
+  events: [],
+  resources: {
+    food: 5000,
+    wood: 2000,
+    stone: 1500,
+    metal: 0,
+    energy: 0,
+    knowledge: 10
+  },
+  environment: {
+    forests: 0,
+    oceans: 0,
+    rivers: 0,
+    lakes: 0,
+    mountains: 0,
+    deserts: 0,
+    cropland: 0,
+    fish: 8000,
+    animals: 12000
+  },
+  tech: {},
+  era: 'Paleolithic',
+  population: 0,
+  marriages: 0,
+  wars: 0,
+  discoveries: 0,
+  stores: 0,
+  fastFood: 0,
+  maxPopEver: 0
+};
+
+// Tech tree (simplified historical progression)
+const TECH_TREE = [
+  { id: 'fire', name: 'Fire Control', year: -400000, era: 'Paleolithic' },
+  { id: 'tools', name: 'Stone Tools', year: -300000, era: 'Paleolithic' },
+  { id: 'language', name: 'Complex Language', year: -50000, era: 'Paleolithic' },
+  { id: 'art', name: 'Cave Art & Symbolism', year: -40000, era: 'Paleolithic' },
+  { id: 'agriculture', name: 'Agriculture', year: -10000, era: 'Neolithic' },
+  { id: 'pottery', name: 'Pottery', year: -8000, era: 'Neolithic' },
+  { id: 'domestication', name: 'Animal Domestication', year: -9000, era: 'Neolithic' },
+  { id: 'writing', name: 'Writing Systems', year: -3400, era: 'Ancient' },
+  { id: 'bronze', name: 'Bronze Metallurgy', year: -3300, era: 'Ancient' },
+  { id: 'cities', name: 'Urbanization', year: -4000, era: 'Ancient' },
+  { id: 'wheel', name: 'The Wheel', year: -3500, era: 'Ancient' },
+  { id: 'iron', name: 'Iron Working', year: -1200, era: 'Ancient' },
+  { id: 'philosophy', name: 'Philosophy & Science', year: -600, era: 'Classical' },
+  { id: 'empire', name: 'Imperial Administration', year: -500, era: 'Classical' },
+  { id: 'concrete', name: 'Concrete & Engineering', year: -200, era: 'Classical' },
+  { id: 'paper', name: 'Paper', year: 100, era: 'Classical' },
+  { id: 'gunpowder', name: 'Gunpowder', year: 850, era: 'Medieval' },
+  { id: 'compass', name: 'Magnetic Compass', year: 1100, era: 'Medieval' },
+  { id: 'printing', name: 'Printing Press', year: 1440, era: 'Renaissance' },
+  { id: 'scientific', name: 'Scientific Method', year: 1600, era: 'Early Modern' },
+  { id: 'steam', name: 'Steam Engine', year: 1712, era: 'Industrial' },
+  { id: 'electricity', name: 'Electricity', year: 1831, era: 'Industrial' },
+  { id: 'germ', name: 'Germ Theory', year: 1860, era: 'Industrial' },
+  { id: 'oil', name: 'Petroleum Industry', year: 1859, era: 'Industrial' },
+  { id: 'automobile', name: 'Automobile', year: 1886, era: 'Modern' },
+  { id: 'airplane', name: 'Powered Flight', year: 1903, era: 'Modern' },
+  { id: 'radio', name: 'Radio & Telecom', year: 1901, era: 'Modern' },
+  { id: 'antibiotics', name: 'Antibiotics', year: 1928, era: 'Modern' },
+  { id: 'nuclear', name: 'Nuclear Technology', year: 1945, era: 'Modern' },
+  { id: 'computer', name: 'Digital Computer', year: 1946, era: 'Modern' },
+  { id: 'internet', name: 'Internet', year: 1969, era: 'Information' },
+  { id: 'smartphone', name: 'Smartphone', year: 2007, era: 'Information' },
+  { id: 'ai', name: 'Modern AI', year: 2012, era: 'Information' },
+  { id: 'fastfood', name: 'Fast Food Industry', year: 1948, era: 'Modern' },
+  { id: 'supermarket', name: 'Supermarkets & Retail', year: 1930, era: 'Modern' }
+];
+
+TECH_TREE.forEach(t => state.tech[t.id] = false);
+
+// Historical milestone events (scripted + procedural mix)
+const MILESTONES = [
+  { year: -10000, type: 'discovery', msg: 'Agriculture begins independently in the Fertile Crescent, China, and Mesoamerica.' },
+  { year: -4000, type: 'discovery', msg: 'First true cities emerge in Mesopotamia (Uruk, Ur).' },
+  { year: -3100, type: 'politics', msg: 'Unification of Upper and Lower Egypt under Narmer.' },
+  { year: -2500, type: 'discovery', msg: 'Great Pyramids of Giza constructed.' },
+  { year: -1200, type: 'war', msg: 'Bronze Age Collapse: cascading failures of Mediterranean civilizations.' },
+  { year: -753, type: 'politics', msg: 'Traditional founding of Rome.' },
+  { year: -509, type: 'politics', msg: 'Roman Republic established.' },
+  { year: -336, type: 'war', msg: 'Alexander the Great begins his conquests.' },
+  { year: -221, type: 'politics', msg: 'Qin Shi Huang unifies China.' },
+  { year: -27, type: 'politics', msg: 'Roman Empire begins under Augustus.' },
+  { year: 476, type: 'war', msg: 'Fall of the Western Roman Empire.' },
+  { year: 622, type: 'politics', msg: 'Hijra — beginning of the Islamic calendar.' },
+  { year: 800, type: 'politics', msg: 'Charlemagne crowned Holy Roman Emperor.' },
+  { year: 1066, type: 'war', msg: 'Norman Conquest of England.' },
+  { year: 1206, type: 'war', msg: 'Genghis Khan founds the Mongol Empire.' },
+  { year: 1347, type: 'disaster', msg: 'Black Death reaches Europe — massive population loss.' },
+  { year: 1492, type: 'discovery', msg: 'Columbus reaches the Americas — Columbian Exchange begins.' },
+  { year: 1517, type: 'politics', msg: 'Martin Luther posts the 95 Theses — Reformation begins.' },
+  { year: 1776, type: 'politics', msg: 'American Declaration of Independence.' },
+  { year: 1789, type: 'politics', msg: 'French Revolution begins.' },
+  { year: 1914, type: 'war', msg: 'World War I begins.' },
+  { year: 1918, type: 'war', msg: 'World War I ends — redrawing of global maps.' },
+  { year: 1939, type: 'war', msg: 'World War II begins.' },
+  { year: 1945, type: 'war', msg: 'World War II ends; United Nations founded; nuclear age begins.' },
+  { year: 1948, type: 'discovery', msg: 'McDonald\'s founded — modern fast-food industry takes shape.' },
+  { year: 1969, type: 'discovery', msg: 'Apollo 11 lands humans on the Moon; ARPANET born.' },
+  { year: 1989, type: 'politics', msg: 'Fall of the Berlin Wall — end of the Cold War era.' },
+  { year: 1991, type: 'discovery', msg: 'World Wide Web becomes publicly available.' },
+  { year: 2001, type: 'war', msg: 'September 11 attacks reshape global politics and security.' },
+  { year: 2007, type: 'discovery', msg: 'iPhone launches — smartphone revolution.' },
+  { year: 2020, type: 'disaster', msg: 'COVID-19 pandemic becomes global.' },
+  { year: 2022, type: 'war', msg: 'Major European land war returns with the invasion of Ukraine.' }
+];
+
+// -------------------- MAP GENERATION --------------------
+const terrain = new Uint8Array(MAP_W * MAP_H); // 0 ocean, 1 land, 2 forest, 3 desert, 4 mountain, 5 river, 6 lake, 7 crop
+const elev = new Float32Array(MAP_W * MAP_H);
+
+function noise(x, y) {
+  // Simple value noise
+  const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function fbm(x, y, oct = 4) {
+  let v = 0, a = 0.5, f = 1;
+  for (let i = 0; i < oct; i++) {
+    v += a * noise(x * f, y * f);
+    a *= 0.5; f *= 2;
+  }
+  return v;
+}
+
+function generateMap() {
+  // Generate elevation + biomes
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      const nx = x / MAP_W, ny = y / MAP_H;
+      let e = fbm(nx * 3.5, ny * 3.5, 5);
+      // Continent shapes
+      e *= Math.sin(nx * Math.PI) * 0.7 + 0.3;
+      e *= Math.sin(ny * Math.PI) * 0.6 + 0.4;
+      elev[y * MAP_W + x] = e;
+
+      if (e < 0.32) terrain[y * MAP_W + x] = 0; // ocean
+      else if (e > 0.72) terrain[y * MAP_W + x] = 4; // mountain
+      else if (e > 0.58 && noise(x * 0.2, y * 0.2) > 0.55) terrain[y * MAP_W + x] = 3; // desert
+      else if (noise(x * 0.15, y * 0.15) > 0.45) terrain[y * MAP_W + x] = 2; // forest
+      else terrain[y * MAP_W + x] = 1; // plain land
+    }
+  }
+
+  // Add rivers (simple downhill)
+  for (let i = 0; i < 18; i++) {
+    let x = Math.floor(Math.random() * MAP_W);
+    let y = Math.floor(Math.random() * MAP_H);
+    if (terrain[y * MAP_W + x] === 0) continue;
+    for (let s = 0; s < 80; s++) {
+      terrain[y * MAP_W + x] = 5;
+      // move downhill
+      let best = elev[y * MAP_W + x], bx = x, by = y;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+        if (elev[ny * MAP_W + nx] < best) { best = elev[ny * MAP_W + nx]; bx = nx; by = ny; }
+      }
+      if (bx === x && by === y) break;
+      x = bx; y = by;
+      if (terrain[y * MAP_W + x] === 0) break;
+    }
+  }
+
+  // Lakes
+  for (let i = 0; i < 12; i++) {
+    const cx = Math.floor(Math.random() * MAP_W);
+    const cy = Math.floor(Math.random() * MAP_H);
+    if (terrain[cy * MAP_W + cx] === 0) continue;
+    const r = 1 + Math.floor(Math.random() * 3);
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (dx*dx + dy*dy <= r*r) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx >= 0 && nx < MAP_W && ny >= 0 && ny < MAP_H && terrain[ny * MAP_W + nx] !== 0)
+          terrain[ny * MAP_W + nx] = 6;
+      }
+    }
+  }
+
+  countEnvironment();
+}
+
+function countEnvironment() {
+  const c = { forests:0, oceans:0, rivers:0, lakes:0, mountains:0, deserts:0, cropland:0 };
+  for (let i = 0; i < terrain.length; i++) {
+    switch (terrain[i]) {
+      case 0: c.oceans++; break;
+      case 2: c.forests++; break;
+      case 3: c.deserts++; break;
+      case 4: c.mountains++; break;
+      case 5: c.rivers++; break;
+      case 6: c.lakes++; break;
+      case 7: c.cropland++; break;
+    }
+  }
+  Object.assign(state.environment, c);
+}
+
+// -------------------- AGENTS --------------------
+class Human {
+  constructor(x, y, year = state.year) {
+    this.id = Math.random().toString(36).slice(2, 9);
+    this.x = x; this.y = y;
+    this.birth = year;
+    this.age = 0;
     this.sex = Math.random() < 0.5 ? 'M' : 'F';
-    this.x = Math.random() * W;
-    this.y = 55 + Math.random() * (H - 80);
-    this.vx = (Math.random() - 0.5) * 0.8;
-    this.vy = (Math.random() - 0.5) * 0.8;
-    this.r = 6;
-    this.married = null;
-    this.isBaby = false;
-    this.timer = 0;
-    this.intel = parents ? (parents[0].intel + parents[1].intel)/2 + (Math.random()-0.5)*8 : 11 + Math.random()*15;
-    if (parents) {
-      this.isBaby = true;
-      this.timer = 180;
-      this.r = 4;
-      this.x = parents[0].x + (Math.random()-0.5)*60;
-      this.y = parents[0].y + (Math.random()-0.5)*60;
-    }
+    this.spouse = null;
+    this.children = [];
+    this.family = null;
+    this.city = null;
+    this.alive = true;
+    this.health = 0.7 + Math.random() * 0.3;
+    this.skills = Math.random();
   }
-  age(){ return year - this.birth; }
-  update(){
-    this.x += this.vx; this.y += this.vy;
-    if(this.x < 12){this.x=12;this.vx*=-1}
-    if(this.x > W-12){this.x=W-12;this.vx*=-1}
-    if(this.y < 50){this.y=50;this.vy*=-1}
-    if(this.y > H-12){this.y=H-12;this.vy*=-1}
-    this.vx += (W/2 - this.x)*0.00004;
-    this.vy += (H/2 - this.y)*0.00004;
-    this.vx *= 0.993; this.vy *= 0.993;
-    if(this.married){
-      const p = agents.find(a => a.id === this.married);
-      if(p){ this.vx += (p.x-this.x)*0.0022; this.vy += (p.y-this.y)*0.0022; }
-    }
-    if(this.isBaby){ this.timer--; if(this.timer<=0){this.isBaby=false;this.r=6;} }
+  get ageYears() { return state.year - this.birth; }
+}
+
+class Family {
+  constructor(founder) {
+    this.id = Math.random().toString(36).slice(2, 8);
+    this.members = [founder];
+    this.founded = state.year;
+    founder.family = this;
   }
-  draw(){
-    ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
-    if(this.isBaby){ ctx.fillStyle='#fbbf24'; ctx.shadowColor='#fbbf24'; ctx.shadowBlur=16; }
-    else if(this.married) ctx.fillStyle='#34d399';
-    else ctx.fillStyle = this.sex==='M' ? '#60a5fa' : '#f472b6';
-    ctx.fill(); ctx.shadowBlur=0;
+  add(h) { this.members.push(h); h.family = this; }
+}
+
+class City {
+  constructor(x, y, name) {
+    this.x = x; this.y = y;
+    this.name = name;
+    this.founded = state.year;
+    this.pop = 50 + Math.floor(Math.random() * 100);
+    this.level = 1; // 1 village, 2 town, 3 city, 4 metropolis
+    this.nation = null;
+    this.buildings = { houses: 10, farms: 5, stores: 0, factories: 0, fastfood: 0 };
+    this.wealth = 10;
   }
 }
 
-function flash(txt, col='#fff'){
-  const el = document.getElementById('flash');
-  el.textContent = txt; el.style.color = col; el.style.opacity = '1';
-  setTimeout(()=> el.style.opacity='0', 900);
+class Nation {
+  constructor(name, capital) {
+    this.name = name;
+    this.capital = capital;
+    this.founded = state.year;
+    this.cities = [capital];
+    this.pop = capital.pop;
+    this.military = 10;
+    this.stability = 0.7;
+    this.techLevel = 0;
+    capital.nation = this;
+  }
 }
 
-function init(){
-  agents = [];
-  for(let i=0;i<80;i++) agents.push(new Agent(year - Math.floor(Math.random()*20)));
+// Name generators
+const CITY_PREFIX = ['New', 'Old', 'Great', 'Port', 'Fort', 'Saint', 'Mount', 'River', 'Lake', 'East', 'West', 'North', 'South'];
+const CITY_ROOT = ['haven', 'bridge', 'ford', 'chester', 'ton', 'burg', 'ville', 'polis', 'grad', 'abad', 'stan', 'land', 'field', 'wood', 'brook'];
+const NATION_SUFFIX = ['ia', 'land', 'stan', 'ania', 'esia', 'aria', 'oria', 'ium'];
+
+function randomCityName() {
+  return CITY_PREFIX[Math.floor(Math.random()*CITY_PREFIX.length)] + 
+         CITY_ROOT[Math.floor(Math.random()*CITY_ROOT.length)];
+}
+function randomNationName() {
+  const roots = ['Aethel', 'Bor', 'Cal', 'Dor', 'Ely', 'Fen', 'Gal', 'Hel', 'Iber', 'Jor', 'Kor', 'Lyr', 'Mer', 'Nor', 'Ost', 'Pel', 'Quin', 'Rav', 'Sol', 'Tor', 'Umb', 'Val', 'Wes', 'Xan', 'Yor', 'Zel'];
+  return roots[Math.floor(Math.random()*roots.length)] + NATION_SUFFIX[Math.floor(Math.random()*NATION_SUFFIX.length)];
 }
 
-function doEvents(){
-  // gentle death
-  agents = agents.filter(a=>{
-    const age = a.age();
-    let ch = 0.0007 + Math.pow(age/105,3)*0.06;
-    ch *= Math.max(0.3, 1.1 - tech*0.04);
-    if(Math.random()<ch || age>112){
-      if(a.married){ const p=agents.find(x=>x.id===a.married); if(p) p.married=null; }
-      return false;
+// -------------------- SIMULATION CORE --------------------
+function logEvent(type, msg, year = state.year) {
+  state.events.unshift({ year, type, msg });
+  if (state.events.length > 120) state.events.pop();
+  renderEvents();
+}
+
+function initWorld() {
+  generateMap();
+  state.humans = [];
+  state.families = [];
+  state.cities = [];
+  state.nations = [];
+  state.events = [];
+  state.year = START_YEAR;
+  state.population = 0;
+  state.marriages = 0;
+  state.wars = 0;
+  state.discoveries = 0;
+  state.stores = 0;
+  state.fastFood = 0;
+  Object.keys(state.tech).forEach(k => state.tech[k] = false);
+  state.resources = { food: 5000, wood: 2000, stone: 1500, metal: 0, energy: 0, knowledge: 10 };
+
+  // Seed early humans (small bands)
+  for (let i = 0; i < 40; i++) {
+    let x, y, tries = 0;
+    do {
+      x = Math.floor(Math.random() * MAP_W);
+      y = Math.floor(Math.random() * MAP_H);
+      tries++;
+    } while ((terrain[y*MAP_W+x] === 0 || terrain[y*MAP_W+x] === 4) && tries < 50);
+    const h = new Human(x, y, START_YEAR - Math.floor(Math.random()*30));
+    state.humans.push(h);
+    if (Math.random() < 0.3) {
+      const f = new Family(h);
+      state.families.push(f);
     }
-    return true;
+  }
+  state.population = state.humans.length;
+  logEvent('discovery', 'Small bands of Homo sapiens roam the African and Eurasian landscapes.');
+  updateUI();
+}
+
+function getEra(year) {
+  if (year < -10000) return 'Paleolithic';
+  if (year < -4000) return 'Neolithic';
+  if (year < -500) return 'Ancient';
+  if (year < 500) return 'Classical';
+  if (year < 1400) return 'Medieval';
+  if (year < 1700) return 'Renaissance / Early Modern';
+  if (year < 1900) return 'Industrial';
+  if (year < 1970) return 'Modern';
+  return 'Information Age';
+}
+
+function unlockTech() {
+  TECH_TREE.forEach(t => {
+    if (!state.tech[t.id] && state.year >= t.year) {
+      state.tech[t.id] = true;
+      state.discoveries++;
+      logEvent('discovery', `Technology unlocked: ${t.name}`);
+      if (t.id === 'agriculture') {
+        // Convert some land to cropland
+        for (let i = 0; i < 40; i++) {
+          const idx = Math.floor(Math.random() * terrain.length);
+          if (terrain[idx] === 1 || terrain[idx] === 2) terrain[idx] = 7;
+        }
+        countEnvironment();
+      }
+      if (t.id === 'cities' && state.cities.length === 0) {
+        spawnFirstCities();
+      }
+      if (t.id === 'fastfood') {
+        state.fastFood = 1;
+        logEvent('discovery', 'Fast-food chains begin spreading across urban centers.');
+      }
+      if (t.id === 'supermarket') {
+        state.stores = 5;
+      }
+    }
+  });
+}
+
+function spawnFirstCities() {
+  const names = ['Uruk', 'Memphis', 'Mohenjo-Daro', 'Anyang', 'Caral'];
+  for (let i = 0; i < 5; i++) {
+    let x, y, tries = 0;
+    do {
+      x = 20 + Math.floor(Math.random() * (MAP_W - 40));
+      y = 15 + Math.floor(Math.random() * (MAP_H - 30));
+      tries++;
+    } while (terrain[y*MAP_W+x] === 0 && tries < 30);
+    const c = new City(x, y, names[i] || randomCityName());
+    c.pop = 2000 + Math.floor(Math.random() * 5000);
+    c.level = 2;
+    state.cities.push(c);
+    // Move some humans there
+    for (let j = 0; j < 30; j++) {
+      const h = new Human(x + (Math.random()-0.5)*4, y + (Math.random()-0.5)*4);
+      h.city = c;
+      state.humans.push(h);
+    }
+  }
+  logEvent('discovery', 'Urbanization begins — the first true cities appear.');
+}
+
+function processMarriages() {
+  if (!state.tech.language && state.year < -40000) return;
+  const singles = state.humans.filter(h => h.alive && !h.spouse && h.ageYears >= 16 && h.ageYears < 45);
+  for (let i = 0; i < singles.length - 1; i += 2) {
+    if (Math.random() > 0.02 * state.speed) continue;
+    const a = singles[i], b = singles[i+1];
+    if (a.sex === b.sex) continue;
+    a.spouse = b; b.spouse = a;
+    state.marriages++;
+    if (!a.family) {
+      const f = new Family(a);
+      f.add(b);
+      state.families.push(f);
+    } else {
+      a.family.add(b);
+    }
+    if (Math.random() < 0.15) {
+      logEvent('family', `${a.sex === 'M' ? 'A man' : 'A woman'} and partner form a new family bond.`);
+    }
+  }
+}
+
+function processBirths() {
+  const couples = state.humans.filter(h => h.alive && h.spouse && h.sex === 'F' && h.ageYears >= 16 && h.ageYears < 42);
+  couples.forEach(m => {
+    const rate = state.tech.agriculture ? 0.08 : 0.04;
+    if (Math.random() < rate * (state.speed / 5)) {
+      const child = new Human(m.x + (Math.random()-0.5), m.y + (Math.random()-0.5), state.year);
+      child.family = m.family;
+      if (m.family) m.family.add(child);
+      if (m.city) { child.city = m.city; m.city.pop++; }
+      state.humans.push(child);
+    }
+  });
+}
+
+function processDeaths() {
+  const baseLife = state.tech.germ ? 70 : state.tech.agriculture ? 45 : 32;
+  state.humans.forEach(h => {
+    if (!h.alive) return;
+    h.age = h.ageYears;
+    const deathChance = Math.max(0.001, (h.age - baseLife) * 0.015 + (1 - h.health) * 0.02);
+    if (Math.random() < deathChance * (state.speed / 10) || h.age > 105) {
+      h.alive = false;
+      if (h.city) h.city.pop = Math.max(0, h.city.pop - 1);
+    }
+  });
+  // Cull dead occasionally
+  if (state.year % 50 === 0) {
+    state.humans = state.humans.filter(h => h.alive);
+  }
+}
+
+function growCities() {
+  if (!state.tech.cities) return;
+  state.cities.forEach(c => {
+    const growth = state.tech.agriculture ? 1.012 : 1.004;
+    const modernBonus = state.tech.internet ? 1.008 : state.tech.electricity ? 1.005 : 1;
+    c.pop = Math.floor(c.pop * growth * modernBonus);
+    c.wealth += c.pop * 0.001;
+
+    if (c.pop > 50000 && c.level < 3) c.level = 3;
+    if (c.pop > 500000 && c.level < 4) c.level = 4;
+
+    // Buildings
+    if (state.tech.supermarket && Math.random() < 0.01) {
+      c.buildings.stores++;
+      state.stores++;
+    }
+    if (state.tech.fastfood && Math.random() < 0.008) {
+      c.buildings.fastfood++;
+      state.fastFood++;
+    }
+    if (state.tech.steam && Math.random() < 0.005) c.buildings.factories++;
   });
 
-  // marriages – frequent
-  const single = agents.filter(a => !a.married && a.age()>=15 && a.age()<=56);
-  const males = single.filter(a=>a.sex==='M');
-  const females = single.filter(a=>a.sex==='F');
-  for(const m of males){
-    if(!females.length) break;
-    if(Math.random() < 0.11){
-      const f = females.splice(Math.floor(Math.random()*females.length),1)[0];
-      m.married = f.id; f.married = m.id;
+  // Occasionally found new cities
+  if (state.year > -3000 && Math.random() < 0.002 * state.speed && state.cities.length < 80) {
+    let x = Math.floor(Math.random() * MAP_W);
+    let y = Math.floor(Math.random() * MAP_H);
+    if (terrain[y*MAP_W+x] !== 0 && terrain[y*MAP_W+x] !== 4) {
+      const c = new City(x, y, randomCityName());
+      c.pop = 300 + Math.floor(Math.random() * 800);
+      state.cities.push(c);
+      logEvent('politics', `New settlement founded: ${c.name}`);
     }
   }
+}
 
-  // SEX + BABIES – high rate so you actually see them spawn
-  for(const a of agents){
-    if(a.sex!=='F' || !a.married) continue;
-    const p = agents.find(x=>x.id===a.married);
-    if(!p) continue;
-    const age = a.age();
-    if(age<16 || age>47) continue;
+function formNations() {
+  if (!state.tech.empire && state.year < -800) return;
+  if (state.nations.length === 0 && state.cities.length >= 3) {
+    const capital = state.cities[0];
+    const n = new Nation(randomNationName(), capital);
+    state.nations.push(n);
+    logEvent('politics', `The nation of ${n.name} is formed around ${capital.name}.`);
+  }
+  // Absorb nearby cities
+  state.nations.forEach(n => {
+    state.cities.forEach(c => {
+      if (c.nation) return;
+      const dist = Math.hypot(c.x - n.capital.x, c.y - n.capital.y);
+      if (dist < 25 && Math.random() < 0.01) {
+        c.nation = n;
+        n.cities.push(c);
+        n.pop += c.pop;
+        logEvent('politics', `${c.name} joins the nation of ${n.name}.`);
+      }
+    });
+  });
+  // New nations
+  if (Math.random() < 0.0015 * state.speed && state.cities.some(c => !c.nation)) {
+    const free = state.cities.filter(c => !c.nation);
+    if (free.length) {
+      const cap = free[Math.floor(Math.random()*free.length)];
+      const n = new Nation(randomNationName(), cap);
+      state.nations.push(n);
+      logEvent('politics', `A new polity rises: ${n.name}.`);
+    }
+  }
+}
 
-    if(Math.random() < 0.16){               // sex often
-      sexCount++;
-      if(Math.random() < 0.32 && agents.length < 450){  // strong birth chance
-        const baby = new Agent(year, [a,p]);
-        agents.push(baby);
-        babies++;
-        if(Math.random()<0.45) flash('Baby!', '#fbbf24');
+function processWars() {
+  if (state.nations.length < 2) return;
+  if (Math.random() > 0.003 * state.speed) return;
+  const a = state.nations[Math.floor(Math.random()*state.nations.length)];
+  const b = state.nations[Math.floor(Math.random()*state.nations.length)];
+  if (a === b) return;
+  state.wars++;
+  const aLoss = Math.floor(a.pop * (0.01 + Math.random()*0.04));
+  const bLoss = Math.floor(b.pop * (0.01 + Math.random()*0.04));
+  a.pop = Math.max(100, a.pop - aLoss);
+  b.pop = Math.max(100, b.pop - bLoss);
+  a.stability -= 0.1; b.stability -= 0.1;
+  logEvent('war', `War between ${a.name} and ${b.name}. Casualties: ~${aLoss + bLoss}`);
+  // Possible conquest
+  if (Math.random() < 0.25 && b.cities.length > 1) {
+    const victim = b.cities.pop();
+    victim.nation = a;
+    a.cities.push(victim);
+    logEvent('war', `${a.name} conquers the city of ${victim.name}.`);
+  }
+}
+
+function processResources() {
+  // Food from crops, hunting, fishing
+  const farmBonus = state.environment.cropland * (state.tech.agriculture ? 8 : 0);
+  const hunt = state.environment.animals * 0.02;
+  const fish = state.environment.fish * 0.015;
+  state.resources.food += farmBonus + hunt + fish;
+  state.resources.food -= state.population * 0.8;
+  if (state.resources.food < 0) {
+    state.resources.food = 0;
+    // Famine pressure
+    if (Math.random() < 0.01) logEvent('disaster', 'Food shortages cause hardship and higher mortality.');
+  }
+  // Wood, stone, metal
+  if (state.tech.tools) state.resources.wood += state.environment.forests * 0.01;
+  if (state.tech.bronze || state.tech.iron) state.resources.metal += 2;
+  if (state.tech.steam) state.resources.energy += 5;
+  if (state.tech.electricity) state.resources.energy += 15;
+  if (state.tech.oil) state.resources.energy += 40;
+  // Knowledge
+  state.resources.knowledge += state.population * 0.0001 * (state.tech.printing ? 3 : 1) * (state.tech.internet ? 10 : 1);
+}
+
+function checkMilestones() {
+  MILESTONES.forEach(m => {
+    if (m.year === state.year) {
+      logEvent(m.type, m.msg);
+      if (m.type === 'war') state.wars++;
+      if (m.type === 'discovery') state.discoveries++;
+    }
+  });
+}
+
+function updatePopulationCount() {
+  // Approximate total population from cities + free humans
+  let p = state.humans.filter(h => h.alive).length;
+  state.cities.forEach(c => p += Math.floor(c.pop * 0.3)); // avoid double count somewhat
+  // Historical-ish scaling for display
+  if (state.year < -5000) p = Math.max(p, 2000000 + (state.year + 12000) * 300);
+  else if (state.year < 0) p = Math.max(p, 15000000 + state.year * 2000);
+  else if (state.year < 1800) p = Math.max(p, 200000000 + state.year * 400000);
+  else if (state.year < 1950) p = Math.max(p, 1000000000 + (state.year - 1800) * 8000000);
+  else p = Math.max(p, 2500000000 + (state.year - 1950) * 70000000);
+  state.population = Math.floor(p);
+  if (state.population > state.maxPopEver) state.maxPopEver = state.population;
+}
+
+function tick() {
+  if (!state.running) return;
+  const steps = Math.max(1, Math.floor(state.speed / 5));
+  for (let s = 0; s < steps; s++) {
+    state.year++;
+    if (state.year > END_YEAR) {
+      state.year = END_YEAR;
+      state.running = false;
+      document.getElementById('btnPlay').classList.remove('active');
+      logEvent('discovery', 'Simulation reached the present day (2025).');
+      break;
+    }
+    unlockTech();
+    processMarriages();
+    processBirths();
+    processDeaths();
+    growCities();
+    formNations();
+    processWars();
+    processResources();
+    checkMilestones();
+    // Slow environmental change
+    if (state.year % 200 === 0) {
+      // Slight deforestation with industry
+      if (state.tech.steam && state.environment.forests > 100) {
+        for (let i = 0; i < 3; i++) {
+          const idx = Math.floor(Math.random() * terrain.length);
+          if (terrain[idx] === 2) terrain[idx] = 1;
+        }
+        countEnvironment();
       }
     }
   }
-
-  // casual loner sex
-  const lonely = agents.filter(a=>!a.married && a.age()>=17 && a.age()<=50);
-  if(lonely.length>4 && Math.random()<0.07){
-    const a1 = lonely[Math.floor(Math.random()*lonely.length)];
-    let a2 = lonely[Math.floor(Math.random()*lonely.length)];
-    if(a1!==a2 && a1.sex!==a2.sex){
-      sexCount++;
-      if(Math.random()<0.15 && agents.length<430){
-        agents.push(new Agent(year,[a1,a2]));
-        babies++;
-      }
-    }
-  }
-
-  // tech growth
-  const avg = agents.reduce((s,a)=>s+a.intel,0)/(agents.length||1);
-  tech += (avg/60) * Math.log10(agents.length+6) * 0.004;
-  tech = Math.min(14, tech);
-
-  if(tech>1.1) houses = Math.min(100, houses+0.2);
-  if(tech>2.0) weapons = Math.min(100, weapons+0.16);
-  if(tech>4.5) houses = Math.min(100, houses+0.35);
-  if(tech>6.5) weapons = Math.min(100, weapons+0.25);
-
-  if(tech<2.3) politics="Bands";
-  else if(tech<4.3) politics="Tribes";
-  else if(tech<6.5) politics="Kingdoms";
-  else if(tech<9) politics="Nations";
-  else if(tech<11.5) politics="Modern States";
-  else politics="AI / Global";
-
-  if(agents.length>460) agents = agents.slice(0,430);
-}
-
-function updateUI(){
-  document.getElementById('year').textContent = 'Year ' + Math.floor(year).toLocaleString();
-  document.getElementById('pop').textContent = agents.length;
-  document.getElementById('mar').textContent = Math.floor(agents.filter(a=>a.married).length/2);
-  document.getElementById('lon').textContent = agents.filter(a=>!a.married && a.age()>28).length;
-  document.getElementById('bab').textContent = babies;
-  document.getElementById('sex').textContent = sexCount;
-  document.getElementById('tb').style.width = (tech/14*100)+'%';
-  document.getElementById('hb').style.width = houses+'%';
-  document.getElementById('wb').style.width = weapons+'%';
-  document.getElementById('pol').textContent = politics;
-
-  let e = "Post-Dinosaur";
-  if(year>-2000000) e="Early Mammals";
-  if(year>-300000) e="Early Humans";
-  if(year>-10000) e="Agriculture";
-  if(year>0) e="Civilizations";
-  if(year>1700) e="Industrial";
-  if(year>1950) e="Modern";
-  if(year>2080) e="Future";
-  document.getElementById('era').textContent = e;
-}
-
-function draw(){
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle='rgba(52,211,153,0.18)';
-  ctx.lineWidth=1.2;
-  for(const a of agents){
-    if(a.married && a.sex==='M'){
-      const p=agents.find(x=>x.id===a.married);
-      if(p){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(p.x,p.y);ctx.stroke();}
-    }
-  }
-  for(const a of agents){ a.update(); a.draw(); }
-}
-
-function loop(timestamp){
-  if(!running){ requestAnimationFrame(loop); return; }
-
-  if(!humanMode){
-    // Fast-forward deep time until humans
-    if(year < -300000){
-      year += 120000;
-      doEvents();
-      document.getElementById('phase').textContent = 'Fast-forwarding deep time…';
-    } else {
-      humanMode = true;
-      lastRealTime = performance.now();
-      document.getElementById('phase').textContent = 'Real-time: 10 years / minute';
-      flash('Humans have arrived!', '#34d399');
-    }
-  } else {
-    // REAL 10 YEARS PER MINUTE
-    const now = performance.now();
-    const elapsedMs = now - lastRealTime;
-    const yearsToAdd = (elapsedMs / 60000) * 10;   // exactly 10 years per minute
-    year += yearsToAdd;
-    lastRealTime = now;
-
-    // run events every frame so spawning feels continuous
-    doEvents();
-  }
-
-  if(year > 2500) year = 2500;
-
+  updatePopulationCount();
+  state.era = getEra(state.year);
   updateUI();
+}
+
+// -------------------- RENDERING --------------------
+function draw() {
+  const cw = canvas.clientWidth;
+  const ch = canvas.clientHeight;
+  const scaleX = cw / MAP_W;
+  const scaleY = ch / MAP_H;
+
+  ctx.clearRect(0, 0, cw, ch);
+
+  // Terrain
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      const t = terrain[y * MAP_W + x];
+      let col;
+      switch (t) {
+        case 0: col = '#0c4a6e'; break;
+        case 1: col = '#1a3a2a'; break;
+        case 2: col = '#166534'; break;
+        case 3: col = '#854d0e'; break;
+        case 4: col = '#4b5563'; break;
+        case 5: col = '#0284c7'; break;
+        case 6: col = '#0369a1'; break;
+        case 7: col = '#4d7c0f'; break;
+        default: col = '#1a3a2a';
+      }
+      ctx.fillStyle = col;
+      ctx.fillRect(x * scaleX, y * scaleY, scaleX + 0.5, scaleY + 0.5);
+    }
+  }
+
+  // Cities
+  state.cities.forEach(c => {
+    const px = c.x * scaleX;
+    const py = c.y * scaleY;
+    const r = Math.min(14, 3 + Math.log10(c.pop + 1) * 2.2);
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fillStyle = c.level >= 4 ? '#f59e0b' : c.level >= 3 ? '#fbbf24' : '#fde68a';
+    ctx.fill();
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Name for larger cities
+    if (c.level >= 2 && scaleX > 4) {
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.font = `${Math.max(9, scaleX * 0.7)}px Inter`;
+      ctx.textAlign = 'center';
+      ctx.fillText(c.name, px, py - r - 3);
+    }
+  });
+
+  // Scattered humans (only draw a sample for performance)
+  const sample = state.humans.filter(h => h.alive).slice(0, 400);
+  sample.forEach(h => {
+    ctx.fillStyle = 'rgba(244, 114, 182, 0.7)';
+    ctx.fillRect(h.x * scaleX - 1, h.y * scaleY - 1, 2.5, 2.5);
+  });
+
+  // Year watermark
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.font = 'bold 48px Inter';
+  ctx.textAlign = 'right';
+  ctx.fillText(state.year < 0 ? Math.abs(state.year) + ' BCE' : state.year + ' CE', cw - 20, ch - 20);
+}
+
+function renderEvents() {
+  const el = document.getElementById('eventLog');
+  el.innerHTML = state.events.slice(0, 40).map(e => {
+    const y = e.year < 0 ? Math.abs(e.year) + ' BCE' : e.year + ' CE';
+    return `<div class="event ${e.type}"><span class="year">${y}</span><span class="msg">${e.msg}</span></div>`;
+  }).join('');
+}
+
+function updateUI() {
+  document.getElementById('yearDisplay').textContent = state.year < 0 ? Math.abs(state.year) + ' BCE' : state.year + ' CE';
+  document.getElementById('eraDisplay').textContent = state.era;
+  document.getElementById('popDisplay').textContent = state.population.toLocaleString();
+  document.getElementById('cityDisplay').textContent = state.cities.length;
+  document.getElementById('nationDisplay').textContent = state.nations.length;
+
+  // Stats tab
+  const sg = document.getElementById('statGrid');
+  sg.innerHTML = `
+    <div class="stat-card"><div class="label">Population</div><div class="value">${state.population.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="label">Families</div><div class="value">${state.families.length}</div></div>
+    <div class="stat-card"><div class="label">Marriages</div><div class="value">${state.marriages.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="label">Wars</div><div class="value">${state.wars}</div></div>
+    <div class="stat-card"><div class="label">Discoveries</div><div class="value">${state.discoveries}</div></div>
+    <div class="stat-card"><div class="label">Stores</div><div class="value">${state.stores}</div></div>
+    <div class="stat-card"><div class="label">Fast Food</div><div class="value">${state.fastFood}</div></div>
+    <div class="stat-card"><div class="label">Knowledge</div><div class="value">${Math.floor(state.resources.knowledge)}</div></div>
+  `;
+
+  const env = document.getElementById('envList');
+  env.innerHTML = `
+    <div class="res-item"><span>Forests</span><span>${state.environment.forests}</span></div>
+    <div class="res-item"><span>Oceans / Seas</span><span>${state.environment.oceans}</span></div>
+    <div class="res-item"><span>Rivers</span><span>${state.environment.rivers}</span></div>
+    <div class="res-item"><span>Lakes</span><span>${state.environment.lakes}</span></div>
+    <div class="res-item"><span>Mountains</span><span>${state.environment.mountains}</span></div>
+    <div class="res-item"><span>Deserts</span><span>${state.environment.deserts}</span></div>
+    <div class="res-item"><span>Cropland</span><span>${state.environment.cropland}</span></div>
+    <div class="res-item"><span>Fish stocks</span><span>${Math.floor(state.environment.fish)}</span></div>
+    <div class="res-item"><span>Wild animals</span><span>${Math.floor(state.environment.animals)}</span></div>
+    <div class="res-item"><span>Food reserves</span><span>${Math.floor(state.resources.food)}</span></div>
+    <div class="res-item"><span>Wood</span><span>${Math.floor(state.resources.wood)}</span></div>
+    <div class="res-item"><span>Metal</span><span>${Math.floor(state.resources.metal)}</span></div>
+    <div class="res-item"><span>Energy</span><span>${Math.floor(state.resources.energy)}</span></div>
+  `;
+
+  // Tech tab
+  const tl = document.getElementById('techList');
+  tl.innerHTML = TECH_TREE.map(t => {
+    const unlocked = state.tech[t.id];
+    const y = t.year < 0 ? Math.abs(t.year) + ' BCE' : t.year + ' CE';
+    return `<div class="tech-item ${unlocked ? 'unlocked' : 'locked'}">
+      <span>${unlocked ? '✓' : '○'} ${t.name}</span>
+      <span>${y}</span>
+    </div>`;
+  }).join('');
+
+  // Society tab
+  const civ = document.getElementById('civList');
+  civ.innerHTML = state.nations.slice(0, 12).map(n => `
+    <div class="res-item">
+      <span><strong>${n.name}</strong> (${n.cities.length} cities)</span>
+      <span>Pop ~${Math.floor(n.pop).toLocaleString()}</span>
+    </div>
+  `).join('') || '<div style="color:var(--muted);font-size:0.8rem">No formal nations yet.</div>';
+
+  const soc = document.getElementById('socialList');
+  soc.innerHTML = `
+    <div class="res-item"><span>Active humans (agents)</span><span>${state.humans.filter(h=>h.alive).length}</span></div>
+    <div class="res-item"><span>Family units</span><span>${state.families.length}</span></div>
+    <div class="res-item"><span>Total marriages</span><span>${state.marriages}</span></div>
+    <div class="res-item"><span>Largest city</span><span>${state.cities.length ? state.cities.reduce((a,b)=>a.pop>b.pop?a:b).name + ' (' + Math.floor(state.cities.reduce((a,b)=>a.pop>b.pop?a:b).pop).toLocaleString() + ')' : '—'}</span></div>
+    <div class="res-item"><span>Current era</span><span>${state.era}</span></div>
+  `;
+}
+
+// -------------------- INPUT & LOOP --------------------
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    document.getElementById('tab-' + tab.dataset.tab).style.display = 'block';
+  });
+});
+
+document.getElementById('btnPlay').addEventListener('click', () => {
+  state.running = true;
+  document.getElementById('btnPlay').classList.add('active');
+});
+document.getElementById('btnPause').addEventListener('click', () => {
+  state.running = false;
+  document.getElementById('btnPlay').classList.remove('active');
+});
+document.getElementById('btnReset').addEventListener('click', () => {
+  initWorld();
+  state.running = true;
+  document.getElementById('btnPlay').classList.add('active');
+});
+
+document.querySelectorAll('[data-speed]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-speed]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.speed = parseInt(btn.dataset.speed);
+  });
+});
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = Math.floor((e.clientX - rect.left) / rect.width * MAP_W);
+  const y = Math.floor((e.clientY - rect.top) / rect.height * MAP_H);
+  if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return;
+  const t = terrain[y * MAP_W + x];
+  const names = ['Ocean', 'Plains', 'Forest', 'Desert', 'Mountain', 'River', 'Lake', 'Cropland'];
+  let info = `Terrain: ${names[t] || 'Unknown'} (${x},${y})`;
+  const city = state.cities.find(c => Math.hypot(c.x - x, c.y - y) < 3);
+  if (city) {
+    info = `<strong>${city.name}</strong><br>Pop: ${Math.floor(city.pop).toLocaleString()}<br>Level: ${['','Village','Town','City','Metropolis'][city.level]}<br>Founded: ${city.founded < 0 ? Math.abs(city.founded)+' BCE' : city.founded+' CE'}`;
+    if (city.nation) info += `<br>Nation: ${city.nation.name}`;
+    if (city.buildings.stores) info += `<br>Stores: ${city.buildings.stores}`;
+    if (city.buildings.fastfood) info += `<br>Fast food: ${city.buildings.fastfood}`;
+  }
+  document.getElementById('hoverInfo').innerHTML = info;
+});
+
+// Main loop
+let last = performance.now();
+function loop(now) {
+  const dt = now - last;
+  last = now;
+  state.tickAcc += dt;
+  // Advance simulation ~ every 80ms base, scaled by speed
+  const interval = 80;
+  if (state.tickAcc > interval) {
+    state.tickAcc = 0;
+    tick();
+  }
   draw();
   requestAnimationFrame(loop);
 }
 
-document.getElementById('go').onclick = ()=>{
-  document.getElementById('start').style.display='none';
-  init();
-  running = true;
-  lastRealTime = performance.now();
-  requestAnimationFrame(loop);
-};
+// Boot
+initWorld();
+requestAnimationFrame(loop);
 </script>
 </body>
 </html>

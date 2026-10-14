@@ -1,408 +1,589 @@
-#!/usr/bin/env python3
-"""
-Real-life style Human Evolution Simulator
-Dinosaurs → Mammals → Humans → Civilization → Future
-Includes: sex, marriages, babies, loners, technology, weapons, houses, politics
-Real-time pacing: 10 years per minute once humans appear
-"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Human Evolution Simulator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600&display=swap');
 
-import random
-import math
-import time
-from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+  :root {
+    --bg: #0f1115;
+    --panel: #1a1d24;
+    --border: #2a2f3a;
+    --text: #e6e9ef;
+    --muted: #8b93a7;
+    --accent: #5b9cff;
+    --green: #3dd68c;
+    --red: #ff6b6b;
+    --orange: #ffb347;
+  }
 
-# ============================================================
-# CONFIG
-# ============================================================
-START_YEAR           = -65_000_000
-HUMAN_ERA_START      = -300_000          # switch to real-time here
-END_YEAR             =  2_200
-YEARS_PER_MINUTE     = 10
-REAL_SECONDS_PER_STEP = 60               # 1 real minute = 10 simulated years
-MAX_AGENTS           = 650
-SEED                 = 42
-random.seed(SEED)
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-# ============================================================
-# AGENT & SOCIETY
-# ============================================================
-@dataclass
-class Agent:
-    id: int
-    birth_year: int
-    sex: str                          # 'M' or 'F'
-    intelligence: float
-    aggression: float
-    sociality: float
-    libido: float                     # desire for sex
-    health: float = 82.0
-    married_to: Optional[int] = None
-    children: List[int] = field(default_factory=list)
-    tech_affinity: float = 0.0
-    political_lean: float = 0.0
-    alive: bool = True
-    is_loner: bool = False
-    last_sex_year: int = -999999
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+    line-height: 1.5;
+  }
 
-    def age(self, year: int) -> int:
-        return year - self.birth_year
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
 
-@dataclass
-class Society:
-    year: int = START_YEAR
-    agents: Dict[int, Agent] = field(default_factory=dict)
-    next_id: int = 0
-    tech_level: float = 0.0
-    tech_names = [
-        "None", "Tools", "Fire", "Language", "Agriculture",
-        "Metalworking", "Writing", "Gunpowder", "Industrial",
-        "Electricity", "Computers", "Internet", "AI", "Spacefaring", "Post-Human"
-    ]
-    political_system: str = "None"
-    houses: int = 0
-    weapons: int = 0
-    total_births: int = 0
-    total_deaths: int = 0
-    marriages: int = 0
-    sexual_encounters: int = 0
-    loners: int = 0
-    disasters: int = 0
-    history: List[str] = field(default_factory=list)
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-bottom: 24px;
+  }
 
-    def log(self, msg: str):
-        entry = f"[{self.year:+,}] {msg}"
-        self.history.append(entry)
-        print(entry)
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+    align-items: center;
+  }
 
-def clamp(v, lo=0.0, hi=100.0):
-    return max(lo, min(hi, v))
+  button {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: all 0.15s;
+  }
 
-def mutate(val, amount=5.0):
-    return clamp(val + random.gauss(0, amount))
+  button:hover { background: #252a35; border-color: var(--accent); }
+  button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-def tech_name(level: float) -> str:
-    idx = min(int(level), len(Society.tech_names) - 1)
-    return Society.tech_names[idx]
+  .speed-label { color: var(--muted); font-size: 0.85rem; }
 
-# ============================================================
-# CORE MECHANICS
-# ============================================================
-def create_initial_population(soc: Society, n=48):
-    for _ in range(n):
-        a = Agent(
-            id=soc.next_id,
-            birth_year=soc.year - random.randint(1, 16),
-            sex=random.choice(['M', 'F']),
-            intelligence=random.uniform(8, 23),
-            aggression=random.uniform(20, 58),
-            sociality=random.uniform(25, 75),
-            libido=random.uniform(30, 80),
-            health=random.uniform(55, 93),
-            tech_affinity=random.uniform(0, 5)
-        )
-        soc.agents[a.id] = a
-        soc.next_id += 1
-    soc.log(f"Initial population of {n} early post-dinosaur mammals established.")
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
 
-def age_and_die(soc: Society):
-    dead = []
-    for a in list(soc.agents.values()):
-        if not a.alive:
-            continue
-        age = a.age(soc.year)
-        death_chance = 0.0016 + (age / 112)**3 * 0.13
-        death_chance *= max(0.22, 1.18 - soc.tech_level * 0.048)
-        death_chance *= max(0.35, 1.28 - a.health / 145)
-        if random.random() < death_chance or age > 110:
-            a.alive = False
-            dead.append(a.id)
-            soc.total_deaths += 1
-            if a.married_to is not None and a.married_to in soc.agents:
-                soc.agents[a.married_to].married_to = None
-    for did in dead:
-        del soc.agents[did]
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
 
-def form_marriages(soc: Society):
-    singles = [a for a in soc.agents.values()
-               if a.alive and a.married_to is None and 15 <= a.age(soc.year) <= 55]
-    random.shuffle(singles)
-    males = [a for a in singles if a.sex == 'M']
-    females = [a for a in singles if a.sex == 'F']
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
 
-    for m in males:
-        if not females:
-            break
-        best, best_score = None, -999
-        for f in females[:min(12, len(females))]:
-            score = -abs(m.sociality - f.sociality) * 0.4
-            score -= abs(m.intelligence - f.intelligence) * 0.25
-            score += (m.sociality + f.sociality) * 0.15
-            score += (m.libido + f.libido) * 0.05
-            score += random.uniform(-10, 10)
-            if score > best_score:
-                best_score, best = score, f
-        if best and best_score > -20 and random.random() < 0.48 + soc.tech_level * 0.02:
-            m.married_to = best.id
-            best.married_to = m.id
-            soc.marriages += 1
-            females.remove(best)
+  .panel h2 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
 
-def have_sex_and_babies(soc: Society):
-    """Sex happens. Married couples have regular sex. Some loners have casual sex."""
-    alive = [a for a in soc.agents.values() if a.alive]
-    random.shuffle(alive)
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 0.95rem;
+  }
 
-    # 1. Married sex
-    for a in alive:
-        if a.sex != 'F' or a.married_to is None:
-            continue
-        partner = soc.agents.get(a.married_to)
-        if not partner or not partner.alive:
-            continue
+  .stat-value { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
 
-        age_f = a.age(soc.year)
-        age_m = partner.age(soc.year)
-        if not (15 <= age_f <= 48 and 15 <= age_m <= 65):
-            continue
+  .year-display {
+    font-size: 2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
 
-        # Desire based on libido, health, and how long since last sex
-        years_since = soc.year - max(a.last_sex_year, partner.last_sex_year)
-        desire = (a.libido + partner.libido) / 2
-        desire *= (a.health + partner.health) / 180
-        desire *= min(2.5, 0.6 + years_since * 0.15)
+  .tech-bar {
+    height: 8px;
+    background: #2a2f3a;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
 
-        if random.random() < desire / 140:
-            # They have sex
-            a.last_sex_year = soc.year
-            partner.last_sex_year = soc.year
-            soc.sexual_encounters += 1
+  .tech-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #5b9cff, #3dd68c);
+    width: 0%;
+    transition: width 0.4s;
+  }
 
-            # Chance of pregnancy (lower with higher tech = better contraception/knowledge)
-            preg_chance = 0.22 - soc.tech_level * 0.012
-            preg_chance *= (a.health / 90)
-            if random.random() < preg_chance and len(soc.agents) < MAX_AGENTS * 1.2:
-                child = Agent(
-                    id=soc.next_id,
-                    birth_year=soc.year,
-                    sex=random.choice(['M', 'F']),
-                    intelligence=mutate((a.intelligence + partner.intelligence) / 2, 5.5),
-                    aggression=mutate((a.aggression + partner.aggression) / 2, 6),
-                    sociality=mutate((a.sociality + partner.sociality) / 2, 5.5),
-                    libido=mutate((a.libido + partner.libido) / 2, 7),
-                    health=mutate((a.health + partner.health) / 2 + 3, 7),
-                    tech_affinity=mutate((a.tech_affinity + partner.tech_affinity) / 2, 3.8)
-                )
-                soc.agents[child.id] = child
-                a.children.append(child.id)
-                partner.children.append(child.id)
-                soc.next_id += 1
-                soc.total_births += 1
+  #log {
+    height: 320px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    background: #12151b;
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid var(--border);
+  }
 
-    # 2. Casual sex among loners / unmarried (lower chance)
-    unmarried = [a for a in alive if a.married_to is None and 16 <= a.age(soc.year) <= 50]
-    random.shuffle(unmarried)
-    for i in range(0, len(unmarried) - 1, 2):
-        a1, a2 = unmarried[i], unmarried[i + 1]
-        if a1.sex == a2.sex:
-            continue
-        if a1.sex == 'M':
-            male, female = a1, a2
-        else:
-            male, female = a2, a1
+  .log-entry { margin-bottom: 4px; color: var(--muted); }
+  .log-entry.important { color: var(--green); }
+  .log-entry.disaster { color: var(--red); }
+  .log-entry.tech { color: var(--orange); }
 
-        desire = (male.libido + female.libido) / 2 * 0.55
-        desire *= (male.sociality + female.sociality) / 160
-        if random.random() < desire / 160:
-            male.last_sex_year = soc.year
-            female.last_sex_year = soc.year
-            soc.sexual_encounters += 1
+  .footer {
+    margin-top: 20px;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
 
-            preg_chance = 0.11 - soc.tech_level * 0.008
-            if random.random() < preg_chance and len(soc.agents) < MAX_AGENTS * 1.15:
-                child = Agent(
-                    id=soc.next_id,
-                    birth_year=soc.year,
-                    sex=random.choice(['M', 'F']),
-                    intelligence=mutate((male.intelligence + female.intelligence) / 2, 6),
-                    aggression=mutate((male.aggression + female.aggression) / 2, 7),
-                    sociality=mutate((male.sociality + female.sociality) / 2, 6),
-                    libido=mutate((male.libido + female.libido) / 2, 8),
-                    health=mutate((male.health + female.health) / 2, 8),
-                    tech_affinity=mutate((male.tech_affinity + female.tech_affinity) / 2, 4)
-                )
-                soc.agents[child.id] = child
-                soc.next_id += 1
-                soc.total_births += 1
+<h1>Human Evolution Simulator</h1>
+<p class="subtitle">From post-dinosaur world → present → future &nbsp;|&nbsp; Sex, marriage, babies, loners, tech, weapons, houses & politics</p>
 
-def update_loners(soc: Society):
-    count = 0
-    for a in soc.agents.values():
-        if a.alive and a.married_to is None and a.age(soc.year) > 26:
-            a.is_loner = True
-            count += 1
-            if a.sociality > 60 and a.libido > 55:
-                a.health = max(15, a.health - 0.6)  # lonely + high desire hurts a bit
-        else:
-            a.is_loner = False
-    soc.loners = count
+<div class="controls">
+  <button id="btnStart">Start</button>
+  <button id="btnPause" disabled>Pause</button>
+  <button id="btnReset">Reset</button>
+  <span class="speed-label">Speed:</span>
+  <button class="speed-btn" data-speed="1">1×</button>
+  <button class="speed-btn active" data-speed="5">5×</button>
+  <button class="speed-btn" data-speed="20">20×</button>
+  <button class="speed-btn" data-speed="100">100×</button>
+  <button class="speed-btn" data-speed="1000">1000×</button>
+</div>
 
-def advance_technology(soc: Society):
-    if not soc.agents:
-        return
-    alive = [a for a in soc.agents.values() if a.alive]
-    avg_int = sum(a.intelligence for a in alive) / len(alive)
-    avg_aff = sum(a.tech_affinity for a in alive) / len(alive)
-    pop = len(alive)
+<div class="grid">
+  <div class="panel">
+    <div class="year-display" id="yearDisplay">Year −65,000,000</div>
+    <div class="stat-row"><span>Population</span><span class="stat-value" id="pop">0</span></div>
+    <div class="stat-row"><span>Married pairs</span><span class="stat-value" id="married">0</span></div>
+    <div class="stat-row"><span>Loners</span><span class="stat-value" id="loners">0</span></div>
+    <div class="stat-row"><span>Sexual encounters</span><span class="stat-value" id="sexCount">0</span></div>
+    <div class="stat-row"><span>Births / Deaths</span><span class="stat-value" id="birthsDeaths">0 / 0</span></div>
+  </div>
 
-    progress = (avg_int / 80) * (avg_aff / 30) * math.log10(pop + 10) * 0.011
-    progress *= (1.0 + random.uniform(-0.3, 0.4))
-    old = soc.tech_level
-    soc.tech_level = min(14.2, soc.tech_level + progress)
+  <div class="panel">
+    <h2>Society</h2>
+    <div class="stat-row"><span>Tech Level</span><span class="stat-value" id="techLevel">0.00</span></div>
+    <div class="tech-bar"><div class="tech-fill" id="techBar"></div></div>
+    <div class="stat-row" style="margin-top:10px"><span>Tech Era</span><span class="stat-value" id="techName">None</span></div>
+    <div class="stat-row"><span>Houses</span><span class="stat-value" id="houses">0</span></div>
+    <div class="stat-row"><span>Weapons</span><span class="stat-value" id="weapons">0</span></div>
+    <div class="stat-row"><span>Politics</span><span class="stat-value" id="politics">None</span></div>
+  </div>
+</div>
 
-    if int(old) < int(soc.tech_level):
-        soc.log(f"*** TECHNOLOGICAL LEAP → {tech_name(soc.tech_level)} ***")
+<div class="panel">
+  <h2>Event Log</h2>
+  <div id="log"></div>
+</div>
 
-    if soc.tech_level >= 1.0 and soc.weapons < 1:
-        soc.weapons = 4
-        soc.log("Simple tools and weapons appear.")
-    if soc.tech_level >= 2.6 and soc.houses < 1:
-        soc.houses = 10
-        soc.log("First permanent shelters / houses built.")
-    if soc.tech_level >= 4.8:
-        soc.houses = max(soc.houses, int(pop * 0.4))
-    if soc.tech_level >= 6.5:
-        soc.weapons = max(soc.weapons, int(pop * 0.25))
-    if soc.tech_level >= 8.5:
-        soc.houses = max(soc.houses, int(pop * 0.8))
-        soc.weapons = max(soc.weapons, int(pop * 0.5))
+<p class="footer">Simulation runs entirely in your browser. Early deep time is accelerated; later periods slow down for readability.</p>
 
-def evolve_politics(soc: Society):
-    if soc.tech_level < 3.0:
-        soc.political_system = "Bands / Kin groups"
-    elif soc.tech_level < 5.0:
-        soc.political_system = "Tribes / Chiefdoms"
-    elif soc.tech_level < 7.0:
-        soc.political_system = "Early States / Kingdoms"
-    elif soc.tech_level < 9.5:
-        avg = sum(a.political_lean for a in soc.agents.values() if a.alive) / max(1, len(soc.agents))
-        if abs(avg) < 0.2:
-            soc.political_system = "Constitutional / Mixed systems"
-        elif avg > 0.15:
-            soc.political_system = "Authoritarian / Strong-state"
-        else:
-            soc.political_system = "Liberal / Democratic experiments"
-    elif soc.tech_level < 12:
-        soc.political_system = "Globalized nation-states + corporations"
-    else:
-        soc.political_system = "Post-national / AI-influenced systems"
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const START_YEAR = -65000000;
+const HUMAN_ERA  = -300000;
+const END_YEAR   = 2200;
+const MAX_AGENTS = 600;
 
-def disasters(soc: Society):
-    if random.random() < 0.03:
-        severity = random.uniform(0.07, 0.35) * max(0.25, 1.2 - soc.tech_level * 0.06)
-        deaths = 0
-        for a in list(soc.agents.values()):
-            if a.alive and random.random() < severity * (1.2 - a.health / 140):
-                a.alive = False
-                deaths += 1
-                soc.total_deaths += 1
-        if deaths:
-            soc.disasters += 1
-            soc.log(f"Disaster struck — {deaths} dead (tech reduced the toll)")
+const TECH_NAMES = [
+  "None","Tools","Fire","Language","Agriculture",
+  "Metalworking","Writing","Gunpowder","Industrial",
+  "Electricity","Computers","Internet","AI","Spacefaring","Post-Human"
+];
 
-def soft_cap(soc: Society):
-    if len(soc.agents) > MAX_AGENTS:
-        excess = len(soc.agents) - MAX_AGENTS
-        cands = [a for a in soc.agents.values() if a.alive]
-        random.shuffle(cands)
-        for a in cands[:excess]:
-            a.alive = False
-            soc.total_deaths += 1
-        soc.agents = {k: v for k, v in soc.agents.items() if v.alive}
+// ============================================================
+// STATE
+// ============================================================
+let year = START_YEAR;
+let agents = [];
+let nextId = 0;
+let techLevel = 0;
+let houses = 0;
+let weapons = 0;
+let politicalSystem = "None";
+let totalBirths = 0;
+let totalDeaths = 0;
+let marriages = 0;
+let sexualEncounters = 0;
+let loners = 0;
+let running = false;
+let speed = 5;               // multiplier
+let lastTick = 0;
+let intervalId = null;
 
-def print_status(soc: Society):
-    alive = [a for a in soc.agents.values() if a.alive]
-    if not alive:
-        print("Population extinct.")
-        return
-    pop = len(alive)
-    avg_int = sum(a.intelligence for a in alive) / pop
-    avg_age = sum(a.age(soc.year) for a in alive) / pop
-    married = sum(1 for a in alive if a.married_to is not None) // 2
-    loners = sum(1 for a in alive if a.is_loner)
+// ============================================================
+// HELPERS
+// ============================================================
+function clamp(v, lo=0, hi=100){ return Math.max(lo, Math.min(hi, v)); }
+function mutate(v, amt=5){ return clamp(v + (Math.random()-0.5)*2*amt); }
+function rand(min, max){ return min + Math.random()*(max-min); }
+function choice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
-    print(f"\n── Year {soc.year:+,} ──  Population: {pop}")
-    print(f"  Married pairs: {married}   |  Loners: {loners}")
-    print(f"  Sexual encounters so far: {soc.sexual_encounters}")
-    print(f"  Avg Intelligence: {avg_int:.1f}   Avg Age: {avg_age:.1f}")
-    print(f"  Tech Level: {soc.tech_level:.2f}  ({tech_name(soc.tech_level)})")
-    print(f"  Houses: {soc.houses}   Weapons: {soc.weapons}")
-    print(f"  Political system: {soc.political_system}")
-    print(f"  Total births / deaths: {soc.total_births} / {soc.total_deaths}")
-    print("─" * 50)
+function techName(level){
+  return TECH_NAMES[Math.min(Math.floor(level), TECH_NAMES.length-1)];
+}
 
-# ============================================================
-# MAIN LOOP
-# ============================================================
-def run():
-    soc = Society()
-    create_initial_population(soc)
+function log(msg, type=""){
+  const el = document.getElementById("log");
+  const div = document.createElement("div");
+  div.className = "log-entry " + type;
+  div.textContent = `[${year.toLocaleString()}] ${msg}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  // keep log reasonable
+  while(el.children.length > 200) el.removeChild(el.firstChild);
+}
 
-    print("\n>>> Fast-forwarding deep time after the dinosaurs...")
-    print("    Real-time mode (10 years per minute) begins at year -300,000\n")
+// ============================================================
+// AGENT
+// ============================================================
+function createAgent(birthYear, parents=null){
+  const a = {
+    id: nextId++,
+    birthYear,
+    sex: Math.random() < 0.5 ? "M" : "F",
+    intelligence: parents ? mutate((parents[0].intelligence+parents[1].intelligence)/2, 5.5) : rand(8,23),
+    aggression:   parents ? mutate((parents[0].aggression+parents[1].aggression)/2, 6)   : rand(20,58),
+    sociality:    parents ? mutate((parents[0].sociality+parents[1].sociality)/2, 5.5)   : rand(25,75),
+    libido:       parents ? mutate((parents[0].libido+parents[1].libido)/2, 7)           : rand(30,80),
+    health:       parents ? mutate((parents[0].health+parents[1].health)/2 + 3, 7)       : rand(55,93),
+    techAffinity: parents ? mutate((parents[0].techAffinity+parents[1].techAffinity)/2, 3.8) : rand(0,5),
+    politicalLean: (Math.random()-0.5)*2,
+    marriedTo: null,
+    children: [],
+    alive: true,
+    isLoner: false,
+    lastSexYear: -999999
+  };
+  return a;
+}
 
-    last_print = soc.year
+// ============================================================
+// CORE SIMULATION
+// ============================================================
+function initPopulation(n=48){
+  agents = [];
+  nextId = 0;
+  for(let i=0;i<n;i++) agents.push(createAgent(year - Math.floor(rand(1,16))));
+  log(`Initial population of ${n} early post-dinosaur mammals established.`, "important");
+}
 
-    while soc.year < END_YEAR:
-        if soc.year < HUMAN_ERA_START:
-            # Fast deep time
-            if soc.year < -2_000_000:
-                step = 80_000
-            elif soc.year < -800_000:
-                step = 20_000
-            else:
-                step = 4_000
-            sleep = 0.12
-        else:
-            # Real-time: 10 years every 60 real seconds
-            step = YEARS_PER_MINUTE
-            sleep = REAL_SECONDS_PER_STEP
+function ageAndDie(){
+  const dead = [];
+  for(const a of agents){
+    if(!a.alive) continue;
+    const age = year - a.birthYear;
+    let chance = 0.0016 + Math.pow(age/112, 3)*0.13;
+    chance *= Math.max(0.22, 1.18 - techLevel*0.048);
+    chance *= Math.max(0.35, 1.28 - a.health/145);
+    if(Math.random() < chance || age > 110){
+      a.alive = false;
+      dead.push(a.id);
+      totalDeaths++;
+      if(a.marriedTo !== null){
+        const p = agents.find(x => x.id === a.marriedTo);
+        if(p) p.marriedTo = null;
+      }
+    }
+  }
+  agents = agents.filter(a => a.alive);
+}
 
-        soc.year += step
+function formMarriages(){
+  const singles = agents.filter(a => a.alive && a.marriedTo===null && (year-a.birthYear)>=15 && (year-a.birthYear)<=55);
+  const males = singles.filter(a => a.sex==="M");
+  const females = singles.filter(a => a.sex==="F");
+  // shuffle
+  for(let i=males.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [males[i],males[j]]=[males[j],males[i]]; }
 
-        age_and_die(soc)
-        form_marriages(soc)
-        have_sex_and_babies(soc)          # ← sex + possible babies
-        update_loners(soc)
-        advance_technology(soc)
-        evolve_politics(soc)
-        disasters(soc)
-        soft_cap(soc)
+  for(const m of males){
+    if(females.length===0) break;
+    let best=null, bestScore=-999;
+    const candidates = females.slice(0, Math.min(12, females.length));
+    for(const f of candidates){
+      let score = -Math.abs(m.sociality-f.sociality)*0.4
+                - Math.abs(m.intelligence-f.intelligence)*0.25
+                + (m.sociality+f.sociality)*0.15
+                + (m.libido+f.libido)*0.05
+                + rand(-10,10);
+      if(score > bestScore){ bestScore=score; best=f; }
+    }
+    if(best && bestScore > -20 && Math.random() < 0.48 + techLevel*0.02){
+      m.marriedTo = best.id;
+      best.marriedTo = m.id;
+      marriages++;
+      females.splice(females.indexOf(best),1);
+    }
+  }
+}
 
-        # Printing
-        if soc.year < HUMAN_ERA_START:
-            if abs(soc.year - last_print) >= 150_000:
-                print_status(soc)
-                last_print = soc.year
-        else:
-            print_status(soc)
-            last_print = soc.year
+function haveSexAndBabies(){
+  // Married sex
+  for(const a of agents){
+    if(a.sex!=="F" || a.marriedTo===null) continue;
+    const partner = agents.find(x => x.id===a.marriedTo);
+    if(!partner || !partner.alive) continue;
 
-        if not soc.agents:
-            print("\n*** EXTINCTION EVENT ***")
-            break
+    const ageF = year - a.birthYear;
+    const ageM = year - partner.birthYear;
+    if(ageF<15 || ageF>48 || ageM<15 || ageM>65) continue;
 
-        time.sleep(sleep)
+    const yearsSince = year - Math.max(a.lastSexYear, partner.lastSexYear);
+    let desire = (a.libido + partner.libido)/2;
+    desire *= (a.health + partner.health)/180;
+    desire *= Math.min(2.5, 0.6 + yearsSince*0.15);
 
-    print("\n" + "=" * 60)
-    print("SIMULATION COMPLETE")
-    print("=" * 60)
-    print_status(soc)
-    print("\nRecent history:")
-    for entry in soc.history[-20:]:
-        print(" ", entry)
+    if(Math.random() < desire/140){
+      a.lastSexYear = year;
+      partner.lastSexYear = year;
+      sexualEncounters++;
 
-if __name__ == "__main__":
-    print("Human Evolution Simulator — from post-dinosaur world to the future")
-    print("Includes sex, marriage, babies, loners, tech, weapons, houses & politics\n")
-    run()
+      let preg = 0.22 - techLevel*0.012;
+      preg *= a.health/90;
+      if(Math.random() < preg && agents.length < MAX_AGENTS*1.2){
+        const child = createAgent(year, [a, partner]);
+        agents.push(child);
+        a.children.push(child.id);
+        partner.children.push(child.id);
+        totalBirths++;
+      }
+    }
+  }
+
+  // Casual sex among unmarried
+  const unmarried = agents.filter(a => a.marriedTo===null && (year-a.birthYear)>=16 && (year-a.birthYear)<=50);
+  for(let i=0;i<unmarried.length-1;i+=2){
+    const a1 = unmarried[i], a2 = unmarried[i+1];
+    if(a1.sex === a2.sex) continue;
+    const male = a1.sex==="M" ? a1 : a2;
+    const female = a1.sex==="F" ? a1 : a2;
+
+    let desire = (male.libido + female.libido)/2 * 0.55;
+    desire *= (male.sociality + female.sociality)/160;
+    if(Math.random() < desire/160){
+      male.lastSexYear = year;
+      female.lastSexYear = year;
+      sexualEncounters++;
+
+      let preg = 0.11 - techLevel*0.008;
+      if(Math.random() < preg && agents.length < MAX_AGENTS*1.15){
+        const child = createAgent(year, [male, female]);
+        agents.push(child);
+        totalBirths++;
+      }
+    }
+  }
+}
+
+function updateLoners(){
+  loners = 0;
+  for(const a of agents){
+    if(a.alive && a.marriedTo===null && (year-a.birthYear)>26){
+      a.isLoner = true;
+      loners++;
+      if(a.sociality>60 && a.libido>55) a.health = Math.max(15, a.health-0.6);
+    } else {
+      a.isLoner = false;
+    }
+  }
+}
+
+function advanceTechnology(){
+  if(agents.length===0) return;
+  const avgInt = agents.reduce((s,a)=>s+a.intelligence,0)/agents.length;
+  const avgAff = agents.reduce((s,a)=>s+a.techAffinity,0)/agents.length;
+  const pop = agents.length;
+
+  let progress = (avgInt/80)*(avgAff/30)*Math.log10(pop+10)*0.011;
+  progress *= (1 + rand(-0.3,0.4));
+  const old = techLevel;
+  techLevel = Math.min(14.2, techLevel + progress);
+
+  if(Math.floor(old) < Math.floor(techLevel)){
+    log(`*** TECHNOLOGICAL LEAP → ${techName(techLevel)} ***`, "tech");
+  }
+
+  if(techLevel>=1.0 && weapons<1){ weapons=4; log("Simple tools and weapons appear.", "important"); }
+  if(techLevel>=2.6 && houses<1){ houses=10; log("First permanent shelters / houses built.", "important"); }
+  if(techLevel>=4.8) houses = Math.max(houses, Math.floor(pop*0.4));
+  if(techLevel>=6.5) weapons = Math.max(weapons, Math.floor(pop*0.25));
+  if(techLevel>=8.5){ houses = Math.max(houses, Math.floor(pop*0.8)); weapons = Math.max(weapons, Math.floor(pop*0.5)); }
+}
+
+function evolvePolitics(){
+  if(techLevel < 3) politicalSystem = "Bands / Kin groups";
+  else if(techLevel < 5) politicalSystem = "Tribes / Chiefdoms";
+  else if(techLevel < 7) politicalSystem = "Early States / Kingdoms";
+  else if(techLevel < 9.5){
+    const avg = agents.reduce((s,a)=>s+a.politicalLean,0)/Math.max(1,agents.length);
+    if(Math.abs(avg)<0.2) politicalSystem = "Constitutional / Mixed";
+    else if(avg>0.15) politicalSystem = "Authoritarian / Strong-state";
+    else politicalSystem = "Liberal / Democratic experiments";
+  }
+  else if(techLevel < 12) politicalSystem = "Globalized nation-states + corporations";
+  else politicalSystem = "Post-national / AI-influenced systems";
+}
+
+function disasters(){
+  if(Math.random() < 0.03){
+    const severity = rand(0.07,0.35) * Math.max(0.25, 1.2 - techLevel*0.06);
+    let deaths = 0;
+    for(const a of agents){
+      if(a.alive && Math.random() < severity*(1.2 - a.health/140)){
+        a.alive = false;
+        deaths++;
+        totalDeaths++;
+      }
+    }
+    agents = agents.filter(a => a.alive);
+    if(deaths>0) log(`Disaster struck — ${deaths} dead (tech reduced the toll)`, "disaster");
+  }
+}
+
+function softCap(){
+  if(agents.length > MAX_AGENTS){
+    const excess = agents.length - MAX_AGENTS;
+    // randomly remove some
+    for(let i=0;i<excess;i++){
+      const idx = Math.floor(Math.random()*agents.length);
+      agents[idx].alive = false;
+      totalDeaths++;
+    }
+    agents = agents.filter(a => a.alive);
+  }
+}
+
+// ============================================================
+// TICK
+// ============================================================
+function tick(){
+  // Adaptive step size
+  let step;
+  if(year < -2000000) step = 80000;
+  else if(year < -800000) step = 20000;
+  else if(year < HUMAN_ERA) step = 4000;
+  else if(year < 0) step = 200;
+  else if(year < 1800) step = 20;
+  else step = 5;
+
+  // Apply speed multiplier (but keep step reasonable)
+  step = Math.max(1, Math.floor(step * (speed/5)));
+
+  year += step;
+  if(year > END_YEAR){ year = END_YEAR; stopSim(); }
+
+  ageAndDie();
+  formMarriages();
+  haveSexAndBabies();
+  updateLoners();
+  advanceTechnology();
+  evolvePolitics();
+  disasters();
+  softCap();
+
+  updateUI();
+
+  if(agents.length===0){
+    log("*** EXTINCTION ***", "disaster");
+    stopSim();
+  }
+}
+
+// ============================================================
+// UI
+// ============================================================
+function updateUI(){
+  document.getElementById("yearDisplay").textContent = "Year " + year.toLocaleString();
+  document.getElementById("pop").textContent = agents.length;
+  const marriedPairs = agents.filter(a=>a.marriedTo!==null).length / 2 | 0;
+  document.getElementById("married").textContent = marriedPairs;
+  document.getElementById("loners").textContent = loners;
+  document.getElementById("sexCount").textContent = sexualEncounters;
+  document.getElementById("birthsDeaths").textContent = `${totalBirths} / ${totalDeaths}`;
+  document.getElementById("techLevel").textContent = techLevel.toFixed(2);
+  document.getElementById("techName").textContent = techName(techLevel);
+  document.getElementById("techBar").style.width = Math.min(100, (techLevel/14)*100) + "%";
+  document.getElementById("houses").textContent = houses;
+  document.getElementById("weapons").textContent = weapons;
+  document.getElementById("politics").textContent = politicalSystem;
+}
+
+function startSim(){
+  if(running) return;
+  running = true;
+  document.getElementById("btnStart").disabled = true;
+  document.getElementById("btnPause").disabled = false;
+  lastTick = performance.now();
+  intervalId = setInterval(()=>{
+    // run multiple ticks depending on speed for smoothness
+    const ticks = Math.max(1, Math.floor(speed/5));
+    for(let i=0;i<ticks;i++) tick();
+  }, 100); // base 10 ticks/sec at 5×
+}
+
+function stopSim(){
+  running = false;
+  clearInterval(intervalId);
+  document.getElementById("btnStart").disabled = false;
+  document.getElementById("btnPause").disabled = true;
+}
+
+function resetSim(){
+  stopSim();
+  year = START_YEAR;
+  techLevel = 0;
+  houses = 0;
+  weapons = 0;
+  politicalSystem = "None";
+  totalBirths = 0;
+  totalDeaths = 0;
+  marriages = 0;
+  sexualEncounters = 0;
+  loners = 0;
+  document.getElementById("log").innerHTML = "";
+  initPopulation();
+  updateUI();
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+document.getElementById("btnStart").onclick = startSim;
+document.getElementById("btnPause").onclick = stopSim;
+document.getElementById("btnReset").onclick = resetSim;
+
+document.querySelectorAll(".speed-btn").forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll(".speed-btn").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    speed = parseInt(btn.dataset.speed);
+  };
+});
+
+// ============================================================
+// BOOT
+// ============================================================
+initPopulation();
+updateUI();
+log("Ready. Press Start to begin the simulation.", "important");
+</script>
+</body>
+</html>

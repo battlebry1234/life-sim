@@ -200,7 +200,7 @@ class City {
     this.level = 1;
     this.nation = null;
     this.hasHospital = false;
-    this.marker = null; // Leaflet marker
+    this.marker = null;
   }
 }
 
@@ -235,14 +235,13 @@ function getEra(y) {
 }
 
 function randomLandPosition() {
-  // Rough land areas (approximate real continents)
   const zones = [
-    { lat: [5, 35], lng: [-10, 40] },      // Africa
-    { lat: [35, 70], lng: [-10, 40] },     // Europe
-    { lat: [20, 60], lng: [40, 140] },     // Asia
-    { lat: [25, 50], lng: [-130, -60] },   // North America
-    { lat: [-40, 10], lng: [-80, -35] },   // South America
-    { lat: [-40, -10], lng: [110, 155] }   // Australia
+    { lat: [5, 35], lng: [-10, 40] },
+    { lat: [35, 70], lng: [-10, 40] },
+    { lat: [20, 60], lng: [40, 140] },
+    { lat: [25, 50], lng: [-130, -60] },
+    { lat: [-40, 10], lng: [-80, -35] },
+    { lat: [-40, -10], lng: [110, 155] }
   ];
   const z = rand(zones);
   return {
@@ -267,7 +266,6 @@ function initWorld() {
   Object.keys(state.tech).forEach(k => (state.tech[k] = false));
   state.resources = { food: 9000, wood: 3500, stone: 2200, metal: 0, energy: 0, knowledge: 12 };
 
-  // Starting population
   for (let i = 0; i < 90; i++) {
     const pos = randomLandPosition();
     const h = new Human(pos.lat, pos.lng, START_YEAR - Math.floor(Math.random() * 50));
@@ -433,7 +431,6 @@ function processDeaths() {
     if (h.hunger > 92) chance += 0.14;
     if (h.thirst > 94) chance += 0.2;
 
-    // Hospitals reduce death chance
     if (h.city && h.city.hasHospital && state.tech.hospitals) {
       chance *= 0.65;
     }
@@ -459,7 +456,6 @@ function growCities() {
     if (c.pop > 40000 && c.level < 3) c.level = 3;
     if (c.pop > 400000 && c.level < 4) c.level = 4;
 
-    // Chance to get a hospital once the tech exists
     if (state.tech.hospitals && !c.hasHospital && Math.random() < 0.002) {
       c.hasHospital = true;
       logEvent("discovery", c.name + " builds a hospital.");
@@ -615,7 +611,7 @@ function addHospitals() {
   if (typeof refreshMapMarkers === "function") refreshMapMarkers();
 }
 
-// Expose for other files
+// Expose
 window.state = state;
 window.initWorld = initWorld;
 window.tick = tick;
@@ -629,3 +625,4 @@ window.addStone = addStone;
 window.addTrees = addTrees;
 window.addHospitals = addHospitals;
 window.playerName = playerName;
+window.updatePop = updatePop;

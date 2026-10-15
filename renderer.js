@@ -1,13 +1,12 @@
-// renderer.js
-// ============================================
-// Drawing, camera, input, and UI for Civilization Maps
+// renderer.js  – fixed version
 // ============================================
 
 const canvas = document.getElementById('world');
 const ctx = canvas.getContext('2d');
 const wrap = document.getElementById('canvasWrap');
 
-let cssW = 0, cssH = 0;
+let cssW = 0;
+let cssH = 0;
 
 const cam = {
   x: 90,
@@ -40,6 +39,7 @@ function w2s(wx, wy) {
     y: (wy - cam.y) * cam.zoom + cssH / 2
   };
 }
+
 function s2w(sx, sy) {
   return {
     x: (sx - cssW / 2) / cam.zoom + cam.x,
@@ -59,14 +59,13 @@ function drawTerrain() {
   for (let y = startY; y < endY; y++) {
     for (let x = startX; x < endX; x++) {
       const t = terrain[y * MAP_W + x];
-      let col;
+      let col = '#1a3a2a';
       if (t === 0) col = '#0c4a6e';
       else if (t === 2) col = '#166534';
       else if (t === 3) col = '#854d0e';
       else if (t === 4) col = '#4b5563';
       else if (t === 5) col = '#0284c7';
       else if (t === 7) col = '#4d7c0f';
-      else col = '#1a3a2a';
 
       const s = w2s(x, y);
       ctx.fillStyle = col;
@@ -84,14 +83,12 @@ function drawCityDetailed(c) {
   const gw = br.x - tl.x;
   const gh = br.y - tl.y;
 
-  // Ground
   ctx.fillStyle = '#2d3748';
   ctx.fillRect(tl.x, tl.y, gw, gh);
   ctx.fillStyle = '#374151';
   ctx.fillRect(tl.x + gw * 0.03, tl.y + gh * 0.03, gw * 0.94, gh * 0.94);
 
-  // Streets
-  c.streets.forEach(st => {
+  c.streets.forEach(function(st) {
     const a = w2s(c.x + st.x1, c.y + st.y1);
     const b = w2s(c.x + st.x2, c.y + st.y2);
     ctx.beginPath();
@@ -103,27 +100,22 @@ function drawCityDetailed(c) {
     ctx.stroke();
   });
 
-  // Buildings
-  c.buildings.forEach(b => {
+  c.buildings.forEach(function(b) {
     const s = w2s(c.x + b.lx - b.w / 2, c.y + b.ly - b.h / 2);
     const sw = b.w * cam.zoom;
     const sh = b.h * cam.zoom;
 
-    // shadow
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
     ctx.fillRect(s.x + 2, s.y + 2, sw, sh);
 
-    // body
     ctx.fillStyle = b.color;
     ctx.fillRect(s.x, s.y, sw, sh);
 
-    // roof edge
     if (cam.zoom > 16) {
       ctx.fillStyle = 'rgba(0,0,0,0.16)';
       ctx.fillRect(s.x, s.y, sw, sh * 0.2);
     }
 
-    // windows
     if (cam.zoom > 24 && (b.type === 'house' || b.type === 'shop' || b.type === 'fastfood')) {
       ctx.fillStyle = '#fef9c3';
       ctx.fillRect(s.x + sw * 0.18, s.y + sh * 0.38, sw * 0.22, sh * 0.25);
@@ -133,11 +125,10 @@ function drawCityDetailed(c) {
     }
   });
 
-  // City name
   if (cam.zoom < 55) {
     const s = w2s(c.x, c.y - size / 2 - 1.1);
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
-    ctx.font = `bold ${Math.max(11, 12 * Math.min(cam.zoom * 0.14, 1.5))}px Inter`;
+    ctx.font = 'bold ' + Math.max(11, 12 * Math.min(cam.zoom * 0.14, 1.5)) + 'px Inter';
     ctx.textAlign = 'center';
     ctx.fillText(c.name, s.x, s.y);
   }
@@ -149,7 +140,8 @@ function drawPeople() {
   const maxDraw = cam.zoom > 45 ? 1000 : cam.zoom > 22 ? 450 : 200;
   let drawn = 0;
 
-  for (const h of state.humans) {
+  for (let i = 0; i < state.humans.length; i++) {
+    const h = state.humans[i];
     if (!h.alive || drawn >= maxDraw) continue;
 
     const s = w2s(h.x, h.y);
@@ -163,7 +155,6 @@ function drawPeople() {
     ctx.fillStyle = h.sex === 'M' ? '#60a5fa' : '#f472b6';
     ctx.fill();
 
-    // head
     if (cam.zoom > 30) {
       ctx.beginPath();
       ctx.arc(s.x, s.y - r * 0.4, r * 0.5, 0, Math.PI * 2);
@@ -171,7 +162,6 @@ function drawPeople() {
       ctx.fill();
     }
 
-    // name
     if (cam.zoom > 42) {
       ctx.fillStyle = '#fff';
       ctx.font = '9px Inter';
@@ -183,12 +173,11 @@ function drawPeople() {
 
 function draw() {
   ctx.clearRect(0, 0, cssW, cssH);
-
   drawTerrain();
 
-  // Nations (only at low zoom)
+  // Nations (low zoom only)
   if (cam.zoom < 5.5) {
-    state.nations.forEach(n => {
+    state.nations.forEach(function(n) {
       if (!n.capital) return;
       const s = w2s(n.capital.x, n.capital.y);
       ctx.beginPath();
@@ -196,24 +185,24 @@ function draw() {
       ctx.strokeStyle = 'rgba(59,130,246,0.38)';
       ctx.lineWidth = 2;
       ctx.stroke();
+
       if (cam.zoom > 1.15) {
         ctx.fillStyle = 'rgba(255,255,255,0.82)';
-        ctx.font = `bold ${Math.max(10, 11 * Math.min(cam.zoom, 1.6))}px Inter`;
+        ctx.font = 'bold ' + Math.max(10, 11 * Math.min(cam.zoom, 1.6)) + 'px Inter';
         ctx.textAlign = 'center';
         ctx.fillText(n.name, s.x, s.y - 17);
       }
     });
   }
 
-  // Cities – detailed view ONLY when zoomed in AND close to that city
-  state.cities.forEach(c => {
+  // Cities – detailed only when zoomed in on that city
+  state.cities.forEach(function(c) {
     const dist = Math.hypot(c.x - cam.x, c.y - cam.y);
     const showDetail = cam.zoom >= 8 && dist < (c.localSize * 0.65 + 5);
 
     if (showDetail) {
       drawCityDetailed(c);
     } else {
-      // Small marker
       const s = w2s(c.x, c.y);
       if (s.x < -35 || s.x > cssW + 35 || s.y < -35 || s.y > cssH + 35) return;
 
@@ -228,7 +217,7 @@ function draw() {
 
       if (cam.zoom > 1.7) {
         ctx.fillStyle = '#fff';
-        ctx.font = `${Math.max(9, 10 * Math.min(cam.zoom * 0.32, 1.25))}px Inter`;
+        ctx.font = Math.max(9, 10 * Math.min(cam.zoom * 0.32, 1.25)) + 'px Inter';
         ctx.textAlign = 'center';
         ctx.fillText(c.name, s.x, s.y - r - 3);
       }
@@ -237,16 +226,23 @@ function draw() {
 
   drawPeople();
 
-  // Focus highlight
+  // Focus ring
   if (state.focus) {
     let fx, fy, fr = 11;
     if (state.focusType === 'city') {
-      fx = state.focus.x; fy = state.focus.y; fr = 15;
+      fx = state.focus.x;
+      fy = state.focus.y;
+      fr = 15;
     } else if (state.focusType === 'person') {
-      fx = state.focus.x; fy = state.focus.y; fr = 8;
+      fx = state.focus.x;
+      fy = state.focus.y;
+      fr = 8;
     } else if (state.focusType === 'nation') {
-      fx = state.focus.capital.x; fy = state.focus.capital.y; fr = 20;
+      fx = state.focus.capital.x;
+      fy = state.focus.capital.y;
+      fr = 20;
     }
+
     if (fx !== undefined) {
       const s = w2s(fx, fy);
       ctx.beginPath();
@@ -257,17 +253,22 @@ function draw() {
     }
   }
 
-  document.getElementById('zoomBadge').textContent = `Zoom: ${cam.zoom.toFixed(1)}×`;
+  document.getElementById('zoomBadge').textContent = 'Zoom: ' + cam.zoom.toFixed(1) + '×';
 }
 
 // ---------- UI ----------
 function renderEvents() {
   const el = document.getElementById('eventLog');
   if (!el) return;
-  el.innerHTML = state.events.slice(0, 28).map(e => {
+
+  let html = '';
+  const list = state.events.slice(0, 28);
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i];
     const y = e.year < 0 ? Math.abs(e.year) + ' BCE' : e.year + ' CE';
-    return `<div class="event ${e.type}"><span class="year">${y}</span><span class="msg">${e.msg}</span></div>`;
-  }).join('');
+    html += '<div class="event ' + e.type + '"><span class="year">' + y + '</span><span class="msg">' + e.msg + '</span></div>';
+  }
+  el.innerHTML = html;
 }
 
 function updateUI() {
@@ -276,40 +277,58 @@ function updateUI() {
   document.getElementById('eraDisplay').textContent = state.era;
   document.getElementById('popDisplay').textContent = state.population.toLocaleString();
   document.getElementById('cityDisplay').textContent = state.cities.length;
-  document.getElementById('aliveDisplay').textContent = state.humans.filter(h => h.alive).length;
+  document.getElementById('aliveDisplay').textContent = state.humans.filter(function(h) { return h.alive; }).length;
 
   // Stats
-  document.getElementById('statGrid').innerHTML = `
-    <div class="stat-card"><div class="label">Population</div><div class="value">${state.population.toLocaleString()}</div></div>
-    <div class="stat-card"><div class="label">Living Agents</div><div class="value">${state.humans.filter(h => h.alive).length}</div></div>
-    <div class="stat-card"><div class="label">Marriages</div><div class="value">${state.marriages}</div></div>
-    <div class="stat-card"><div class="label">Families</div><div class="value">${state.families.length}</div></div>
-    <div class="stat-card"><div class="label">Wars</div><div class="value">${state.wars}</div></div>
-    <div class="stat-card"><div class="label">Cities</div><div class="value">${state.cities.length}</div></div>
-    <div class="stat-card"><div class="label">Nations</div><div class="value">${state.nations.length}</div></div>
-    <div class="stat-card"><div class="label">Discoveries</div><div class="value">${state.discoveries}</div></div>`;
+  document.getElementById('statGrid').innerHTML =
+    '<div class="stat-card"><div class="label">Population</div><div class="value">' + state.population.toLocaleString() + '</div></div>' +
+    '<div class="stat-card"><div class="label">Living Agents</div><div class="value">' + state.humans.filter(function(h){return h.alive;}).length + '</div></div>' +
+    '<div class="stat-card"><div class="label">Marriages</div><div class="value">' + state.marriages + '</div></div>' +
+    '<div class="stat-card"><div class="label">Families</div><div class="value">' + state.families.length + '</div></div>' +
+    '<div class="stat-card"><div class="label">Wars</div><div class="value">' + state.wars + '</div></div>' +
+    '<div class="stat-card"><div class="label">Cities</div><div class="value">' + state.cities.length + '</div></div>' +
+    '<div class="stat-card"><div class="label">Nations</div><div class="value">' + state.nations.length + '</div></div>' +
+    '<div class="stat-card"><div class="label">Discoveries</div><div class="value">' + state.discoveries + '</div></div>';
 
-  document.getElementById('envList').innerHTML = `
-    <div class="res-item"><span>Forests</span><span>${state.environment.forests}</span></div>
-    <div class="res-item"><span>Oceans</span><span>${state.environment.oceans}</span></div>
-    <div class="res-item"><span>Food</span><span>${Math.floor(state.resources.food)}</span></div>
-    <div class="res-item"><span>Energy</span><span>${Math.floor(state.resources.energy)}</span></div>
-    <div class="res-item"><span>Knowledge</span><span>${Math.floor(state.resources.knowledge)}</span></div>`;
+  document.getElementById('envList').innerHTML =
+    '<div class="res-item"><span>Forests</span><span>' + state.environment.forests + '</span></div>' +
+    '<div class="res-item"><span>Oceans</span><span>' + state.environment.oceans + '</span></div>' +
+    '<div class="res-item"><span>Food</span><span>' + Math.floor(state.resources.food) + '</span></div>' +
+    '<div class="res-item"><span>Energy</span><span>' + Math.floor(state.resources.energy) + '</span></div>' +
+    '<div class="res-item"><span>Knowledge</span><span>' + Math.floor(state.resources.knowledge) + '</span></div>';
 
-  // Tech
-  document.getElementById('techList').innerHTML = TECH_TREE.map(t => {
+  // Tech list
+  let techHtml = '';
+  for (let i = 0; i < TECH_TREE.length; i++) {
+    const t = TECH_TREE[i];
     const y = t.year < 0 ? Math.abs(t.year) + ' BCE' : t.year + ' CE';
-    return `<div class="tech-item ${state.tech[t.id] ? 'unlocked' : 'locked'}">
-      <span>${state.tech[t.id] ? '✓' : '○'} ${t.name}</span><span>${y}</span></div>`;
-  }).join('');
+    const cls = state.tech[t.id] ? 'unlocked' : 'locked';
+    const mark = state.tech[t.id] ? '✓' : '○';
+    techHtml += '<div class="tech-item ' + cls + '"><span>' + mark + ' ' + t.name + '</span><span>' + y + '</span></div>';
+  }
+  document.getElementById('techList').innerHTML = techHtml;
 
   // People list
-  const sample = state.humans.filter(h => h.alive).sort((a, b) => b.age - a.age).slice(0, 14);
-  document.getElementById('peopleList').innerHTML = sample.map(h => `
-    <div class="person-card" onclick="focusPerson(${h.id})">
-      <div class="name">${h.name} (${h.sex})</div>
-      <div class="meta">Age ${h.age} • ${h.job}${h.spouse ? ' • Married' : ' • Single'}${h.city ? ' • ' + h.city.name : ''}</div>
-    </div>`).join('') || '<div style="color:var(--muted)">No living people right now.</div>';
+  const alive = state.humans.filter(function(h) { return h.alive; });
+  alive.sort(function(a, b) { return b.age - a.age; });
+  const sample = alive.slice(0, 14);
+
+  let peopleHtml = '';
+  if (sample.length === 0) {
+    peopleHtml = '<div style="color:var(--muted)">No living people right now.</div>';
+  } else {
+    for (let i = 0; i < sample.length; i++) {
+      const h = sample[i];
+      peopleHtml +=
+        '<div class="person-card" onclick="focusPerson(' + h.id + ')">' +
+        '<div class="name">' + h.name + ' (' + h.sex + ')</div>' +
+        '<div class="meta">Age ' + h.age + ' • ' + h.job +
+        (h.spouse ? ' • Married' : ' • Single') +
+        (h.city ? ' • ' + h.city.name : '') +
+        '</div></div>';
+    }
+  }
+  document.getElementById('peopleList').innerHTML = peopleHtml;
 
   renderFocusPanel();
 }
@@ -319,44 +338,44 @@ function renderFocusPanel() {
   if (!panel) return;
 
   if (!state.focus) {
-    panel.innerHTML = `<div style="color:var(--muted);font-size:0.85rem">
-      Click a city marker, then zoom in with the mouse wheel.<br>
-      Streets and buildings appear only for the city you are looking at.
-    </div>`;
+    panel.innerHTML = '<div style="color:var(--muted);font-size:0.85rem">' +
+      'Click a city marker, then zoom in with the mouse wheel.<br>' +
+      'Streets and buildings appear only for the city you are looking at.' +
+      '</div>';
     return;
   }
 
   if (state.focusType === 'person') {
     const h = state.focus;
-    panel.innerHTML = `
-      <div style="font-size:1.1rem;font-weight:600;color:#f472b6;margin-bottom:6px">${h.name}</div>
-      <div class="res-item"><span>Age</span><span>${h.age}</span></div>
-      <div class="res-item"><span>Spouse</span><span>${h.spouse ? h.spouse.name : 'None'}</span></div>
-      <div class="res-item"><span>Children</span><span>${h.children.length}</span></div>
-      <div class="res-item"><span>City</span><span>${h.city ? h.city.name : '—'}</span></div>
-      <button class="focus-btn" onclick="zoomToPerson(${h.id})">Zoom to Person</button>`;
+    panel.innerHTML =
+      '<div style="font-size:1.1rem;font-weight:600;color:#f472b6;margin-bottom:6px">' + h.name + '</div>' +
+      '<div class="res-item"><span>Age</span><span>' + h.age + '</span></div>' +
+      '<div class="res-item"><span>Spouse</span><span>' + (h.spouse ? h.spouse.name : 'None') + '</span></div>' +
+      '<div class="res-item"><span>Children</span><span>' + h.children.length + '</span></div>' +
+      '<div class="res-item"><span>City</span><span>' + (h.city ? h.city.name : '—') + '</span></div>' +
+      '<button class="focus-btn" onclick="zoomToPerson(' + h.id + ')">Zoom to Person</button>';
   } else if (state.focusType === 'city') {
     const c = state.focus;
-    panel.innerHTML = `
-      <div style="font-size:1.1rem;font-weight:600;color:#fbbf24;margin-bottom:6px">${c.name}</div>
-      <div class="res-item"><span>Population</span><span>${Math.floor(c.pop).toLocaleString()}</span></div>
-      <div class="res-item"><span>Level</span><span>${['','Village','Town','City','Metropolis'][c.level]}</span></div>
-      <div class="res-item"><span>Nation</span><span>${c.nation ? c.nation.name : 'Independent'}</span></div>
-      <div class="res-item"><span>Buildings</span><span>${c.buildings.length || 'Zoom in'}</span></div>
-      <button class="focus-btn" onclick="zoomToCity()">Zoom into this City</button>`;
+    panel.innerHTML =
+      '<div style="font-size:1.1rem;font-weight:600;color:#fbbf24;margin-bottom:6px">' + c.name + '</div>' +
+      '<div class="res-item"><span>Population</span><span>' + Math.floor(c.pop).toLocaleString() + '</span></div>' +
+      '<div class="res-item"><span>Level</span><span>' + ['','Village','Town','City','Metropolis'][c.level] + '</span></div>' +
+      '<div class="res-item"><span>Nation</span><span>' + (c.nation ? c.nation.name : 'Independent') + '</span></div>' +
+      '<div class="res-item"><span>Buildings</span><span>' + (c.buildings.length || 'Zoom in') + '</span></div>' +
+      '<button class="focus-btn" onclick="zoomToCity()">Zoom into this City</button>';
   } else if (state.focusType === 'nation') {
     const n = state.focus;
-    panel.innerHTML = `
-      <div style="font-size:1.1rem;font-weight:600;color:#3b82f6;margin-bottom:6px">${n.name}</div>
-      <div class="res-item"><span>Capital</span><span>${n.capital.name}</span></div>
-      <div class="res-item"><span>Cities</span><span>${n.cities.length}</span></div>
-      <button class="focus-btn" onclick="zoomToNation()">Zoom to Nation</button>`;
+    panel.innerHTML =
+      '<div style="font-size:1.1rem;font-weight:600;color:#3b82f6;margin-bottom:6px">' + n.name + '</div>' +
+      '<div class="res-item"><span>Capital</span><span>' + n.capital.name + '</span></div>' +
+      '<div class="res-item"><span>Cities</span><span>' + n.cities.length + '</span></div>' +
+      '<button class="focus-btn" onclick="zoomToNation()">Zoom to Nation</button>';
   }
 }
 
-// Global helpers for onclick
+// Global helpers
 window.focusPerson = function(id) {
-  const h = state.humans.find(p => p.id === id);
+  const h = state.humans.find(function(p) { return p.id === id; });
   if (!h) return;
   state.focus = h;
   state.focusType = 'person';
@@ -365,7 +384,7 @@ window.focusPerson = function(id) {
 };
 
 window.zoomToPerson = function(id) {
-  const h = state.humans.find(p => p.id === id);
+  const h = state.humans.find(function(p) { return p.id === id; });
   if (!h) return;
   state.focus = h;
   state.focusType = 'person';
@@ -392,30 +411,29 @@ window.zoomToNation = function() {
 };
 
 // ---------- Input ----------
-wrap.addEventListener('wheel', e => {
+wrap.addEventListener('wheel', function(e) {
   e.preventDefault();
   const factor = e.deltaY > 0 ? 0.78 : 1.28;
   const mouse = s2w(e.offsetX, e.offsetY);
   cam.targetZoom = Math.max(cam.minZoom, Math.min(cam.maxZoom, cam.zoom * factor));
-  // zoom toward cursor
   const after = s2w(e.offsetX, e.offsetY);
   cam.x += mouse.x - after.x;
   cam.y += mouse.y - after.y;
 }, { passive: false });
 
-wrap.addEventListener('mousedown', e => {
+wrap.addEventListener('mousedown', function(e) {
   cam.dragging = true;
   cam.lastMX = e.clientX;
   cam.lastMY = e.clientY;
   wrap.classList.add('dragging');
 });
 
-window.addEventListener('mouseup', () => {
+window.addEventListener('mouseup', function() {
   cam.dragging = false;
   wrap.classList.remove('dragging');
 });
 
-window.addEventListener('mousemove', e => {
+window.addEventListener('mousemove', function(e) {
   if (!cam.dragging) return;
   cam.x -= (e.clientX - cam.lastMX) / cam.zoom;
   cam.y -= (e.clientY - cam.lastMY) / cam.zoom;
@@ -423,18 +441,21 @@ window.addEventListener('mousemove', e => {
   cam.lastMY = e.clientY;
 });
 
-canvas.addEventListener('click', e => {
+canvas.addEventListener('click', function(e) {
   if (cam.dragging) return;
   const rect = canvas.getBoundingClientRect();
   const w = s2w(e.clientX - rect.left, e.clientY - rect.top);
 
-  // People first when zoomed in
   if (cam.zoom > 14) {
-    let closest = null, bestD = 1.9;
-    state.humans.forEach(h => {
+    let closest = null;
+    let bestD = 1.9;
+    state.humans.forEach(function(h) {
       if (!h.alive) return;
       const d = Math.hypot(h.x - w.x, h.y - w.y);
-      if (d < bestD) { bestD = d; closest = h; }
+      if (d < bestD) {
+        bestD = d;
+        closest = h;
+      }
     });
     if (closest) {
       state.focus = closest;
@@ -445,11 +466,14 @@ canvas.addEventListener('click', e => {
     }
   }
 
-  // Cities
-  let bestCity = null, bestCD = 3.8;
-  state.cities.forEach(c => {
+  let bestCity = null;
+  let bestCD = 3.8;
+  state.cities.forEach(function(c) {
     const d = Math.hypot(c.x - w.x, c.y - w.y);
-    if (d < bestCD) { bestCD = d; bestCity = c; }
+    if (d < bestCD) {
+      bestCD = d;
+      bestCity = c;
+    }
   });
   if (bestCity) {
     state.focus = bestCity;
@@ -459,11 +483,14 @@ canvas.addEventListener('click', e => {
     return;
   }
 
-  // Nations
-  let bestN = null, bestND = 11;
-  state.nations.forEach(n => {
+  let bestN = null;
+  let bestND = 11;
+  state.nations.forEach(function(n) {
     const d = Math.hypot(n.capital.x - w.x, n.capital.y - w.y);
-    if (d < bestND) { bestND = d; bestN = n; }
+    if (d < bestND) {
+      bestND = d;
+      bestN = n;
+    }
   });
   if (bestN) {
     state.focus = bestN;
@@ -473,62 +500,71 @@ canvas.addEventListener('click', e => {
   }
 });
 
-canvas.addEventListener('mousemove', e => {
+canvas.addEventListener('mousemove', function(e) {
   if (cam.dragging) return;
   const rect = canvas.getBoundingClientRect();
   const w = s2w(e.clientX - rect.left, e.clientY - rect.top);
-  let info = `(${w.x.toFixed(1)}, ${w.y.toFixed(1)})`;
+  let info = '(' + w.x.toFixed(1) + ', ' + w.y.toFixed(1) + ')';
 
   if (cam.zoom > 11) {
-    let closest = null, bestD = 2.4;
-    state.humans.forEach(h => {
+    let closest = null;
+    let bestD = 2.4;
+    state.humans.forEach(function(h) {
       if (!h.alive) return;
       const d = Math.hypot(h.x - w.x, h.y - w.y);
-      if (d < bestD) { bestD = d; closest = h; }
+      if (d < bestD) {
+        bestD = d;
+        closest = h;
+      }
     });
     if (closest) {
-      info = `<strong>${closest.name}</strong> (age ${closest.age})<br>
-        ${closest.spouse ? 'Married' : 'Single'}${closest.city ? ' • ' + closest.city.name : ''}`;
+      info = '<strong>' + closest.name + '</strong> (age ' + closest.age + ')<br>' +
+             (closest.spouse ? 'Married' : 'Single') +
+             (closest.city ? ' • ' + closest.city.name : '');
       document.getElementById('hoverInfo').innerHTML = info;
       return;
     }
   }
 
-  const city = state.cities.find(c => Math.hypot(c.x - w.x, c.y - w.y) < 3.2);
+  const city = state.cities.find(function(c) {
+    return Math.hypot(c.x - w.x, c.y - w.y) < 3.2;
+  });
   if (city) {
-    info = `<strong>${city.name}</strong><br>Pop ${Math.floor(city.pop).toLocaleString()}<br>
-      <em>Zoom in to see streets & buildings</em>`;
+    info = '<strong>' + city.name + '</strong><br>Pop ' + Math.floor(city.pop).toLocaleString() +
+           '<br><em>Zoom in to see streets & buildings</em>';
   }
   document.getElementById('hoverInfo').innerHTML = info;
 });
 
-// Timeline scrubber – actually changes the year
-document.getElementById('timeline').addEventListener('input', e => {
-  const target = parseInt(e.target.value);
+// Timeline
+document.getElementById('timeline').addEventListener('input', function(e) {
+  const target = parseInt(e.target.value, 10);
   state.year = target;
   state.era = getEra(state.year);
 
-  // Sync tech to the new year
-  TECH_TREE.forEach(t => {
+  TECH_TREE.forEach(function(t) {
     state.tech[t.id] = state.year >= t.year;
   });
 
-  updatePop();
+  if (typeof updatePop === 'function') updatePop();
   updateUI();
+
   document.getElementById('timelineLabel').textContent =
     state.year < 0 ? Math.abs(state.year) + ' BCE' : state.year + ' CE';
 });
 
 // Buttons
-document.getElementById('btnPlay').onclick = () => {
+document.getElementById('btnPlay').onclick = function() {
   state.running = true;
   document.getElementById('btnPlay').classList.add('active');
 };
-document.getElementById('btnPause').onclick = () => {
+
+document.getElementById('btnPause').onclick = function() {
   state.running = false;
   document.getElementById('btnPlay').classList.remove('active');
 };
-document.getElementById('btnReset').onclick = () => {
+
+document.getElementById('btnReset').onclick = function() {
   initWorld();
   state.running = true;
   document.getElementById('btnPlay').classList.add('active');
@@ -537,13 +573,16 @@ document.getElementById('btnReset').onclick = () => {
   cam.zoom = 1.15;
   cam.targetZoom = 1.15;
 };
-document.getElementById('btnZoomIn').onclick = () => {
+
+document.getElementById('btnZoomIn').onclick = function() {
   cam.targetZoom = Math.min(cam.maxZoom, cam.zoom * 1.45);
 };
-document.getElementById('btnZoomOut').onclick = () => {
+
+document.getElementById('btnZoomOut').onclick = function() {
   cam.targetZoom = Math.max(cam.minZoom, cam.zoom * 0.68);
 };
-document.getElementById('btnResetView').onclick = () => {
+
+document.getElementById('btnResetView').onclick = function() {
   cam.x = MAP_W / 2;
   cam.y = MAP_H / 2;
   cam.targetZoom = 1.15;
@@ -552,33 +591,40 @@ document.getElementById('btnResetView').onclick = () => {
   renderFocusPanel();
 };
 
-document.querySelectorAll('[data-speed]').forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll('[data-speed]').forEach(b => b.classList.remove('active'));
+document.querySelectorAll('[data-speed]').forEach(function(btn) {
+  btn.onclick = function() {
+    document.querySelectorAll('[data-speed]').forEach(function(b) {
+      b.classList.remove('active');
+    });
     btn.classList.add('active');
     state.speed = parseFloat(btn.dataset.speed);
   };
 });
 
-document.querySelectorAll('.tab').forEach(tab => {
-  tab.onclick = () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+document.querySelectorAll('.tab').forEach(function(tab) {
+  tab.onclick = function() {
+    document.querySelectorAll('.tab').forEach(function(t) {
+      t.classList.remove('active');
+    });
     tab.classList.add('active');
-    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    document.querySelectorAll('.tab-content').forEach(function(c) {
+      c.style.display = 'none';
+    });
     document.getElementById('tab-' + tab.dataset.tab).style.display = 'block';
   };
 });
 
-// Smooth camera
+// Camera smoothing
 function updateCam() {
   cam.zoom += (cam.targetZoom - cam.zoom) * 0.15;
 }
 
-// Simple walking for people when zoomed in
+// Simple walking
 function updateWalking(dt) {
   if (cam.zoom < 9) return;
   const speed = 0.22;
-  state.humans.forEach(h => {
+
+  state.humans.forEach(function(h) {
     if (!h.alive) return;
     h.walkTimer -= dt;
     if (h.walkTimer <= 0) {
@@ -614,7 +660,6 @@ function loop(now) {
   last = now;
   acc += dt * 1000;
 
-  // Slower simulation tick
   if (acc > 140) {
     acc = 0;
     tick();
@@ -626,6 +671,6 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
-// Boot
+// Start
 initWorld();
 requestAnimationFrame(loop);

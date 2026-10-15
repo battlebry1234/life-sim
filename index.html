@@ -1,12 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Civilization Maps — Historical Simulator</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Civilization Maps – Creator Mode</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
+  <!-- Start Screen -->
+  <div id="startScreen">
+    <h1>🌍 Civilization Maps</h1>
+    <p>You are about to become the Creator of this world.<br>Enter your name to begin.</p>
+    <input type="text" id="nameInput" placeholder="Your name..." maxlength="24" autofocus />
+    <button id="startBtn" disabled>Start Simulation</button>
+  </div>
+
   <header>
     <h1>🌍 <span>Civilization Maps</span></h1>
     <div class="controls">
@@ -18,11 +31,6 @@
       <button data-speed="4">4×</button>
       <button data-speed="12">12×</button>
     </div>
-    <div class="zoom-controls">
-      <button id="btnZoomIn">＋</button>
-      <button id="btnZoomOut">－</button>
-      <button id="btnResetView">⌂</button>
-    </div>
     <div class="stats-bar">
       <div>Year: <strong id="yearDisplay">-12000</strong></div>
       <div>Era: <strong id="eraDisplay">Paleolithic</strong></div>
@@ -33,56 +41,65 @@
   </header>
 
   <main>
-    <div class="canvas-wrap" id="canvasWrap">
-      <canvas id="world"></canvas>
-      <div class="overlay-info" id="hoverInfo">Scroll = zoom • Drag = pan • Click a city then zoom in</div>
-      <div class="zoom-badge" id="zoomBadge">Zoom: 1.0×</div>
-      <div class="timeline-bar">
-        <span id="timelineLabel">-12000 BCE</span>
-        <input type="range" id="timeline" min="-12000" max="2025" value="-12000" step="5">
-        <span>2025</span>
-      </div>
+    <div id="map"></div>
+
+    <!-- Creator panel -->
+    <div class="god-panel" id="godPanel" style="display:none">
+      <div class="god-name" id="godName">Creator</div>
+      <div class="god-figure">👁️‍🗨️</div>
+      <div class="god-label">The Creator</div>
     </div>
 
-    <div class="sidebar">
-      <div class="tabs">
-        <div class="tab active" data-tab="events">Events</div>
-        <div class="tab" data-tab="stats">Stats</div>
-        <div class="tab" data-tab="focus">Focus</div>
-        <div class="tab" data-tab="people">People</div>
-        <div class="tab" data-tab="tech">Tech</div>
-      </div>
-      <div class="tab-content" id="tab-events">
-        <div class="panel-section"><h3>Event Log</h3><div class="event-log" id="eventLog"></div></div>
-      </div>
-      <div class="tab-content" id="tab-stats" style="display:none">
-        <div class="panel-section"><h3>Statistics</h3><div class="stat-grid" id="statGrid"></div></div>
-        <div class="panel-section"><h3>Resources</h3><div id="envList"></div></div>
-      </div>
-      <div class="tab-content" id="tab-focus" style="display:none">
-        <div class="panel-section"><h3>Focus</h3><div id="focusPanel"></div></div>
-      </div>
-      <div class="tab-content" id="tab-people" style="display:none">
-        <div class="panel-section"><h3>Living People</h3><div id="peopleList"></div></div>
-      </div>
-      <div class="tab-content" id="tab-tech" style="display:none">
-        <div class="panel-section"><h3>Technology</h3><div id="techList"></div></div>
-      </div>
+    <!-- Add bar -->
+    <div class="add-bar" id="addBar" style="display:none">
+      <button onclick="addTrees()">🌲 Trees</button>
+      <button onclick="addHumans()">👤 Humans</button>
+      <button onclick="addFood()">🍖 Food</button>
+      <button onclick="addWood()">🪵 Wood</button>
+      <button onclick="addStone()">🪨 Stone</button>
+      <button onclick="addHospitals()">🏥 Hospitals</button>
+    </div>
+
+    <div class="timeline-bar">
+      <span id="timelineLabel">-12000 BCE</span>
+      <input type="range" id="timeline" min="-12000" max="2025" value="-12000" step="5" />
+      <span>2025</span>
     </div>
   </main>
 
-  <footer>
-    <div class="legend">
-      <span><div class="dot" style="background:#166534"></div>Forest</span>
-      <span><div class="dot" style="background:#0c4a6e"></div>Ocean</span>
-      <span><div class="dot" style="background:#fbbf24"></div>City</span>
-      <span><div class="dot" style="background:#86efac"></div>Buildings</span>
-      <span><div class="dot" style="background:#f472b6"></div>People</span>
+  <div class="sidebar">
+    <div class="tabs">
+      <div class="tab active" data-tab="events">Events</div>
+      <div class="tab" data-tab="stats">Stats</div>
+      <div class="tab" data-tab="focus">Focus</div>
+      <div class="tab" data-tab="people">People</div>
+      <div class="tab" data-tab="tech">Tech</div>
     </div>
-    <div>Multi-file version • Humans persist longer • Cities only detail when zoomed on them • Timeline works</div>
+    <div class="tab-content" id="tab-events">
+      <div class="panel-section"><h3>Event Log</h3><div class="event-log" id="eventLog"></div></div>
+    </div>
+    <div class="tab-content" id="tab-stats" style="display:none">
+      <div class="panel-section"><h3>Statistics</h3><div class="stat-grid" id="statGrid"></div></div>
+      <div class="panel-section"><h3>Resources</h3><div id="envList"></div></div>
+    </div>
+    <div class="tab-content" id="tab-focus" style="display:none">
+      <div class="panel-section"><h3>Focus</h3><div id="focusPanel"></div></div>
+    </div>
+    <div class="tab-content" id="tab-people" style="display:none">
+      <div class="panel-section"><h3>Living People</h3><div id="peopleList"></div></div>
+    </div>
+    <div class="tab-content" id="tab-tech" style="display:none">
+      <div class="panel-section"><h3>Technology</h3><div id="techList"></div></div>
+    </div>
+  </div>
+
+  <footer>
+    <div>Real map base (OpenStreetMap) • Continents → Countries → Cities as you zoom • Hospitals added</div>
   </footer>
 
+  <!-- Libraries -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="simulation.js"></script>
-  <script src="renderer.js"></script>
+  <script src="map.js"></script>
 </body>
 </html>

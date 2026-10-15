@@ -1,5 +1,5 @@
 // map.js
-// ===================== LEAFLET MAP + UI =====================
+// ===================== LEAFLET MAP + CITY DIVE MODE =====================
 
 let map;
 let cityLayer;
@@ -7,50 +7,99 @@ let peopleLayer;
 let hospitalLayer;
 let historicalLayer;
 
+// City Dive variables
+let cityDiveActive = false;
+let diveCanvas = null;
+let diveCtx = null;
+let diveCity = null;
+let divePeople = [];
+let diveTrees = [];
+let diveBuildings = [];
+let diveAnimationId = null;
+
 const HISTORICAL_SITES = [
   {
     name: "Rome",
     lat: 41.9028,
     lng: 12.4964,
-    year: -753,
+    year: -50,
     description: "The heart of the Roman Empire. Forum, temples, and later the Colosseum."
   },
   {
     name: "Memphis (Egypt)",
     lat: 29.8447,
     lng: 31.2508,
-    year: -3100,
+    year: -2500,
     description: "Capital of ancient Egypt. The Pyramids of Giza and the Great Sphinx rise nearby."
   },
   {
     name: "Athens",
     lat: 37.9838,
     lng: 23.7275,
-    year: -800,
+    year: -450,
     description: "Birthplace of democracy and classical Greek culture. The Acropolis dominates the skyline."
   },
   {
     name: "Uruk",
     lat: 31.3222,
     lng: 45.6361,
-    year: -4000,
+    year: -3500,
     description: "One of the world’s first true cities in Mesopotamia."
   },
   {
     name: "Anyang",
     lat: 36.0996,
     lng: 114.3460,
-    year: -1300,
+    year: -1200,
     description: "Shang Dynasty capital – early Chinese civilization and oracle bones."
   },
   {
     name: "Caral",
     lat: -10.8917,
     lng: -77.5208,
-    year: -2600,
+    year: -2200,
     description: "One of the oldest cities in the Americas (Norte Chico civilization)."
   }
 ];
+
+const CITY_DIVE_DATA = {
+  "Rome": {
+    year: -50,
+    title: "Rome – Heart of the Empire",
+    description: "The Forum is alive. Soldiers, senators, merchants and families fill the streets.",
+    roles: ["Senator", "Legionary", "Merchant", "Farmer", "Builder", "Priest", "Slave"]
+  },
+  "Memphis (Egypt)": {
+    year: -2500,
+    title: "Memphis – Age of the Pyramids",
+    description: "Workers, priests and overseers move around the great building projects. The Sphinx watches.",
+    roles: ["Priest", "Builder", "Overseer", "Farmer", "Scribe", "Soldier"]
+  },
+  "Athens": {
+    year: -450,
+    title: "Athens – Golden Age",
+    description: "Philosophers, citizens and artisans fill the agora beneath the Acropolis.",
+    roles: ["Citizen", "Philosopher", "Soldier", "Merchant", "Artisan", "Farmer"]
+  },
+  "Uruk": {
+    year: -3500,
+    title: "Uruk – First Great City",
+    description: "The earliest urban life. Temples rise and trade begins.",
+    roles: ["Priest", "Farmer", "Craftsman", "Trader", "Guard"]
+  },
+  "Anyang": {
+    year: -1200,
+    title: "Anyang – Shang Capital",
+    description: "Bronze workers, diviners and royal attendants move through the city.",
+    roles: ["Diviner", "Bronze Worker", "Soldier", "Farmer", "Noble"]
+  },
+  "Caral": {
+    year: -2200,
+    title: "Caral – Ancient Andes",
+    description: "Pyramid builders and farmers of the Norte Chico civilization.",
+    roles: ["Builder", "Farmer", "Priest", "Fisher"]
+  }
+};
 
 function initMap() {
   map = L.map("map", {
@@ -71,21 +120,23 @@ function initMap() {
   hospitalLayer = L.layerGroup().addTo(map);
   historicalLayer = L.layerGroup().addTo(map);
 
-  // Add historical site markers
+  // Historical markers
   HISTORICAL_SITES.forEach(site => {
     const marker = L.circleMarker([site.lat, site.lng], {
-      radius: 8,
+      radius: 9,
       fillColor: "#a78bfa",
       color: "#5b21b6",
       weight: 2,
-      fillOpacity: 0.7
+      fillOpacity: 0.75
     });
 
     marker.bindPopup(`
       <strong>${site.name}</strong><br>
       Important from ~${site.year < 0 ? Math.abs(site.year) + " BCE" : site.year + " CE"}<br>
       ${site.description}<br><br>
-      <button onclick="zoomToHistorical('${site.name}')">Zoom to this place</button>
+      <button onclick="zoomToHistorical('${site.name}')" style="padding:6px 12px;cursor:pointer;">
+        Zoom into this place
+      </button>
     `);
 
     historicalLayer.addLayer(marker);
@@ -96,19 +147,12 @@ function initMap() {
   });
 }
 
-// ---------- Markers ----------
+// ---------- Normal markers ----------
 function createCityMarker(city) {
   let radius = 6;
   let color = "#fbbf24";
-
-  if (city.level >= 3) {
-    radius = 9;
-    color = "#f59e0b";
-  }
-  if (city.level >= 4) {
-    radius = 12;
-    color = "#ea580c";
-  }
+  if (city.level >= 3) { radius = 9; color = "#f59e0b"; }
+  if (city.level >= 4) { radius = 12; color = "#ea580c"; }
 
   const marker = L.circleMarker([city.lat, city.lng], {
     radius: radius,
@@ -119,15 +163,13 @@ function createCityMarker(city) {
     fillOpacity: 0.85
   });
 
-  let popup = `
+  marker.bindPopup(`
     <strong>${city.name}</strong><br>
     Population: ${Math.floor(city.pop).toLocaleString()}<br>
     Level: ${["", "Village", "Town", "City", "Metropolis"][city.level]}<br>
     ${city.nation ? "Nation: " + city.nation.name : "Independent"}
     ${city.hasHospital ? "<br>🏥 Has Hospital" : ""}
-  `;
-
-  marker.bindPopup(popup);
+  `);
 
   marker.on("click", () => {
     state.focus = city;
@@ -136,12 +178,10 @@ function createCityMarker(city) {
     renderFocusPanel();
   });
 
-  city.marker = marker;
   return marker;
 }
 
 function createPersonMarker(human) {
-  // Blue for male, Pink for female
   const color = human.sex === "M" ? "#3b82f6" : "#ec4899";
 
   const marker = L.circleMarker([human.lat, human.lng], {
@@ -184,20 +224,17 @@ function createHospitalMarker(city) {
 }
 
 function refreshMapMarkers() {
-  if (!map) return;
+  if (!map || cityDiveActive) return;
 
   const zoom = map.getZoom();
-
   cityLayer.clearLayers();
   peopleLayer.clearLayers();
   hospitalLayer.clearLayers();
 
-  // Cities always visible
   state.cities.forEach(city => {
     cityLayer.addLayer(createCityMarker(city));
   });
 
-  // Hospitals from zoom 6+
   if (zoom >= 6) {
     state.cities.forEach(city => {
       if (city.hasHospital) {
@@ -206,51 +243,299 @@ function refreshMapMarkers() {
     });
   }
 
-  // People only when zoomed in (to avoid clutter)
   if (zoom >= 9) {
     const alive = state.humans.filter(h => h.alive);
     const maxPeople = zoom >= 12 ? 450 : 200;
-    const sample = alive.slice(0, maxPeople);
-
-    sample.forEach(h => {
+    alive.slice(0, maxPeople).forEach(h => {
       peopleLayer.addLayer(createPersonMarker(h));
     });
   }
 }
 
-// ---------- Historical zoom helper ----------
+// ========== CITY DIVE MODE ==========
+function enterCityDive(siteName) {
+  const data = CITY_DIVE_DATA[siteName];
+  if (!data) return;
+
+  cityDiveActive = true;
+  diveCity = siteName;
+
+  // Jump time to thriving period
+  state.year = data.year;
+  state.era = getEra(state.year);
+  TECH_TREE.forEach(t => {
+    state.tech[t.id] = state.year >= t.year;
+  });
+  document.getElementById("timeline").value = state.year;
+  document.getElementById("timelineLabel").textContent =
+    state.year < 0 ? Math.abs(state.year) + " BCE" : state.year + " CE";
+
+  // Hide normal UI
+  document.querySelector(".timeline-bar").style.display = "none";
+  document.querySelector(".add-bar").style.display = "none";
+  document.querySelector(".god-panel").style.display = "none";
+  document.getElementById("sidebar").style.display = "none";
+
+  // Create dive canvas if needed
+  if (!diveCanvas) {
+    diveCanvas = document.createElement("canvas");
+    diveCanvas.id = "cityDiveCanvas";
+    diveCanvas.style.cssText = "position:fixed;inset:0;z-index:3000;background:#1a2e1a;cursor:crosshair;";
+    document.body.appendChild(diveCanvas);
+    diveCtx = diveCanvas.getContext("2d");
+
+    const exitBtn = document.createElement("button");
+    exitBtn.id = "exitDiveBtn";
+    exitBtn.textContent = "← Exit City View";
+    exitBtn.style.cssText = `
+      position:fixed;top:16px;left:16px;z-index:3001;
+      background:#1e293b;color:white;border:1px solid #334155;
+      padding:10px 18px;border-radius:8px;cursor:pointer;font-size:0.9rem;
+    `;
+    exitBtn.onclick = exitCityDive;
+    document.body.appendChild(exitBtn);
+
+    const title = document.createElement("div");
+    title.id = "diveTitle";
+    title.style.cssText = `
+      position:fixed;top:16px;left:50%;transform:translateX(-50%);
+      z-index:3001;background:rgba(15,23,42,0.92);color:#fbbf24;
+      padding:10px 24px;border-radius:10px;font-weight:600;font-size:1.1rem;
+      border:1px solid #334155;text-align:center;max-width:90%;
+    `;
+    document.body.appendChild(title);
+  }
+
+  document.getElementById("diveTitle").innerHTML = `
+    ${data.title}<br>
+    <span style="font-size:0.75rem;color:#94a3b8;font-weight:400">${data.description}</span>
+  `;
+
+  diveCanvas.style.display = "block";
+  document.getElementById("exitDiveBtn").style.display = "block";
+  document.getElementById("diveTitle").style.display = "block";
+
+  generateDiveScene(data);
+  resizeDiveCanvas();
+  startDiveLoop();
+}
+
+function exitCityDive() {
+  cityDiveActive = false;
+  if (diveAnimationId) cancelAnimationFrame(diveAnimationId);
+
+  if (diveCanvas) diveCanvas.style.display = "none";
+  const exitBtn = document.getElementById("exitDiveBtn");
+  const title = document.getElementById("diveTitle");
+  if (exitBtn) exitBtn.style.display = "none";
+  if (title) title.style.display = "none";
+
+  document.querySelector(".timeline-bar").style.display = "flex";
+  document.querySelector(".add-bar").style.display = "flex";
+  document.querySelector(".god-panel").style.display = "block";
+  document.getElementById("sidebar").style.display = "flex";
+
+  updateUI();
+  refreshMapMarkers();
+}
+
+function resizeDiveCanvas() {
+  if (!diveCanvas) return;
+  diveCanvas.width = window.innerWidth;
+  diveCanvas.height = window.innerHeight;
+}
+
+function generateDiveScene(data) {
+  divePeople = [];
+  diveTrees = [];
+  diveBuildings = [];
+
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  // Buildings
+  for (let i = 0; i < 20; i++) {
+    diveBuildings.push({
+      x: 60 + Math.random() * (w - 140),
+      y: 110 + Math.random() * (h - 260),
+      w: 36 + Math.random() * 70,
+      h: 32 + Math.random() * 55,
+      type: Math.random() > 0.72 ? "temple" : "house"
+    });
+  }
+
+  // Trees
+  for (let i = 0; i < 40; i++) {
+    diveTrees.push({
+      x: Math.random() * w,
+      y: 90 + Math.random() * (h - 180),
+      size: 11 + Math.random() * 17
+    });
+  }
+
+  // Adult figures
+  for (let i = 0; i < 60; i++) {
+    const sex = Math.random() < 0.5 ? "M" : "F";
+    divePeople.push({
+      x: 50 + Math.random() * (w - 100),
+      y: 130 + Math.random() * (h - 240),
+      sex: sex,
+      isAdult: true,
+      role: data.roles[Math.floor(Math.random() * data.roles.length)],
+      name: (sex === "M" ? 
+        ["Marcus","Lucius","Gaius","Titus","Quintus","Appius"][Math.floor(Math.random()*6)] :
+        ["Julia","Livia","Cornelia","Aurelia","Octavia","Flavia"][Math.floor(Math.random()*6)]) + " " +
+        ["Maximus","Severus","Varus","Cato","Flaccus","Rufus"][Math.floor(Math.random()*6)],
+      age: 18 + Math.floor(Math.random() * 42),
+      vx: (Math.random() - 0.5) * 0.55,
+      vy: (Math.random() - 0.5) * 0.55
+    });
+  }
+
+  // Children (small dots)
+  for (let i = 0; i < 28; i++) {
+    const sex = Math.random() < 0.5 ? "M" : "F";
+    divePeople.push({
+      x: 50 + Math.random() * (w - 100),
+      y: 130 + Math.random() * (h - 240),
+      sex: sex,
+      isAdult: false,
+      role: "Child",
+      name: "Young " + (sex === "M" ? "Boy" : "Girl"),
+      age: Math.floor(Math.random() * 11),
+      vx: (Math.random() - 0.5) * 0.85,
+      vy: (Math.random() - 0.5) * 0.85
+    });
+  }
+}
+
+function drawDiveScene() {
+  if (!diveCtx || !cityDiveActive) return;
+
+  const w = diveCanvas.width;
+  const h = diveCanvas.height;
+  const ctx = diveCtx;
+
+  // Ground
+  ctx.fillStyle = "#243c24";
+  ctx.fillRect(0, 0, w, h);
+
+  // Simple roads
+  ctx.strokeStyle = "#475569";
+  ctx.lineWidth = 16;
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.52);
+  ctx.lineTo(w, h * 0.52);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(w * 0.38, 0);
+  ctx.lineTo(w * 0.38, h);
+  ctx.stroke();
+
+  // Buildings
+  diveBuildings.forEach(b => {
+    ctx.fillStyle = b.type === "temple" ? "#a78bfa" : "#94a3b8";
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    // roof
+    ctx.fillStyle = "#64748b";
+    ctx.beginPath();
+    ctx.moveTo(b.x - 5, b.y);
+    ctx.lineTo(b.x + b.w / 2, b.y - 16);
+    ctx.lineTo(b.x + b.w + 5, b.y);
+    ctx.fill();
+  });
+
+  // Trees
+  diveTrees.forEach(t => {
+    ctx.fillStyle = "#78350f";
+    ctx.fillRect(t.x - 3, t.y, 6, t.size * 0.55);
+    ctx.fillStyle = "#166534";
+    ctx.beginPath();
+    ctx.arc(t.x, t.y - 5, t.size * 0.65, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // People
+  divePeople.forEach(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    if (p.x < 25 || p.x > w - 25) p.vx *= -1;
+    if (p.y < 90 || p.y > h - 30) p.vy *= -1;
+
+    if (p.isAdult) {
+      const color = p.sex === "M" ? "#3b82f6" : "#ec4899";
+      // body
+      ctx.fillStyle = color;
+      ctx.fillRect(p.x - 5, p.y - 17, 10, 15);
+      // head
+      ctx.beginPath();
+      ctx.arc(p.x, p.y - 23, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+      // legs
+      ctx.fillRect(p.x - 5, p.y - 2, 3.5, 9);
+      ctx.fillRect(p.x + 1.5, p.y - 2, 3.5, 9);
+    } else {
+      // child = small dot
+      ctx.fillStyle = p.sex === "M" ? "#60a5fa" : "#f472b6";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+}
+
+function startDiveLoop() {
+  function loop() {
+    if (!cityDiveActive) return;
+    drawDiveScene();
+    diveAnimationId = requestAnimationFrame(loop);
+  }
+  loop();
+}
+
+// Click people inside dive mode
+document.addEventListener("click", (e) => {
+  if (!cityDiveActive || !diveCanvas) return;
+  if (e.target.id === "exitDiveBtn" || e.target.closest("#diveTitle")) return;
+
+  const rect = diveCanvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  for (const p of divePeople) {
+    const dist = Math.hypot(p.x - mx, p.y - my);
+    if (dist < 20) {
+      alert(
+        `${p.name}\n` +
+        `Age: ${p.age}\n` +
+        `Role: ${p.role}\n` +
+        `${p.sex === "M" ? "Male" : "Female"} ${p.isAdult ? "Adult" : "Child"}`
+      );
+      break;
+    }
+  }
+});
+
+window.addEventListener("resize", () => {
+  if (cityDiveActive) resizeDiveCanvas();
+});
+
+// ---------- Historical zoom ----------
 window.zoomToHistorical = function (name) {
   const site = HISTORICAL_SITES.find(s => s.name === name);
-  if (!site || !map) return;
+  if (!site) return;
 
-  map.setView([site.lat, site.lng], 10);
-
-  // Try to find a matching city in the simulation
-  const city = state.cities.find(c => 
-    Math.hypot(c.lat - site.lat, c.lng - site.lng) < 1.5
-  );
-
-  if (city) {
-    state.focus = city;
-    state.focusType = "city";
-    document.querySelector('[data-tab="focus"]').click();
-    renderFocusPanel();
-  } else {
-    // Show info even if no simulated city exists yet
-    state.focus = {
-      name: site.name,
-      lat: site.lat,
-      lng: site.lng,
-      description: site.description,
-      year: site.year
-    };
-    state.focusType = "historical";
-    document.querySelector('[data-tab="focus"]').click();
-    renderFocusPanel();
+  if (map) {
+    map.setView([site.lat, site.lng], 8);
   }
+
+  // Enter the detailed city dive after a short delay
+  setTimeout(() => {
+    enterCityDive(name);
+  }, 700);
 };
 
-// ---------- UI ----------
+// ---------- UI functions ----------
 function renderEvents() {
   const el = document.getElementById("eventLog");
   if (!el) return;
@@ -298,7 +583,6 @@ function updateUI() {
   });
   document.getElementById("techList").innerHTML = techHtml;
 
-  // People list – blue / pink names
   const alive = state.humans.filter(h => h.alive);
   alive.sort((a, b) => b.age - a.age);
   const sample = alive.slice(0, 18);
@@ -328,8 +612,8 @@ function renderFocusPanel() {
   if (!state.focus) {
     panel.innerHTML = `
       <div style="color:var(--muted);font-size:0.85rem">
-        Click a city, person, or purple historical marker on the map.<br>
-        Zoom in to see more detail.
+        Click a city, person, or purple historical marker.<br>
+        Click “Zoom into this place” on Rome, Egypt, Athens etc. to enter City Dive mode.
       </div>`;
     return;
   }
@@ -347,7 +631,7 @@ function renderFocusPanel() {
       <div class="res-item"><span>Living</span><span>${h.livingDescription}</span></div>
       <div class="res-item"><span>Spouse</span><span>${h.spouse && h.spouse.alive ? h.spouse.name : "None"}</span></div>
       <div class="res-item"><span>Children</span><span>${h.children.filter(c => c.alive).length}</span></div>
-      <button class="focus-btn" onclick="zoomToPerson(${h.id})" style="width:100%;margin-top:8px;background:var(--accent);border:none;color:white;padding:8px;border-radius:6px;cursor:pointer">Zoom to Person</button>
+      <button onclick="zoomToPerson(${h.id})" style="width:100%;margin-top:8px;background:var(--accent);border:none;color:white;padding:8px;border-radius:6px;cursor:pointer">Zoom to Person</button>
     `;
   } else if (state.focusType === "city") {
     const c = state.focus;
@@ -357,15 +641,7 @@ function renderFocusPanel() {
       <div class="res-item"><span>Level</span><span>${["", "Village", "Town", "City", "Metropolis"][c.level]}</span></div>
       <div class="res-item"><span>Nation</span><span>${c.nation ? c.nation.name : "Independent"}</span></div>
       <div class="res-item"><span>Hospital</span><span>${c.hasHospital ? "Yes 🏥" : "No"}</span></div>
-      <button class="focus-btn" onclick="zoomToCity()" style="width:100%;margin-top:8px;background:var(--accent);border:none;color:white;padding:8px;border-radius:6px;cursor:pointer">Zoom to City</button>
-    `;
-  } else if (state.focusType === "historical") {
-    const s = state.focus;
-    panel.innerHTML = `
-      <div style="font-size:1.15rem;font-weight:600;color:#a78bfa;margin-bottom:6px">${s.name}</div>
-      <div style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">${s.description}</div>
-      <div class="res-item"><span>Important from</span><span>${s.year < 0 ? Math.abs(s.year) + " BCE" : s.year + " CE"}</span></div>
-      <button onclick="zoomToHistorical('${s.name}')" style="width:100%;margin-top:8px;background:#7c3aed;border:none;color:white;padding:8px;border-radius:6px;cursor:pointer">Zoom Here</button>
+      <button onclick="zoomToCity()" style="width:100%;margin-top:8px;background:var(--accent);border:none;color:white;padding:8px;border-radius:6px;cursor:pointer">Zoom to City</button>
     `;
   }
 }
@@ -390,8 +666,7 @@ window.zoomToPerson = function (id) {
 
 window.zoomToCity = function () {
   if (state.focusType !== "city" || !map) return;
-  const c = state.focus;
-  map.setView([c.lat, c.lng], 10);
+  map.setView([state.focus.lat, state.focus.lng], 10);
 };
 
 // ---------- Controls ----------
@@ -429,25 +704,21 @@ document.querySelectorAll(".tab").forEach(tab => {
   };
 });
 
-// Collapse sidebar
 document.getElementById("btnCollapseSidebar").addEventListener("click", () => {
   document.getElementById("sidebar").classList.toggle("collapsed");
 });
 
-// Timeline – stronger update
+// Timeline
 document.getElementById("timeline").addEventListener("input", e => {
   const target = parseInt(e.target.value, 10);
   state.year = target;
   state.era = getEra(state.year);
-
   TECH_TREE.forEach(t => {
     state.tech[t.id] = state.year >= t.year;
   });
-
   updatePop();
   updateUI();
   refreshMapMarkers();
-
   document.getElementById("timelineLabel").textContent =
     state.year < 0 ? Math.abs(state.year) + " BCE" : state.year + " CE";
 });
@@ -491,7 +762,7 @@ function loop(now) {
 
   if (acc > 160) {
     acc = 0;
-    tick();
+    if (!cityDiveActive) tick();
   }
 
   requestAnimationFrame(loop);

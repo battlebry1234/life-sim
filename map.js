@@ -5,9 +5,54 @@ let map;
 let cityLayer;
 let peopleLayer;
 let hospitalLayer;
+let historicalLayer;
+
+const HISTORICAL_SITES = [
+  {
+    name: "Rome",
+    lat: 41.9028,
+    lng: 12.4964,
+    year: -753,
+    description: "The heart of the Roman Empire. Forum, temples, and later the Colosseum."
+  },
+  {
+    name: "Memphis (Egypt)",
+    lat: 29.8447,
+    lng: 31.2508,
+    year: -3100,
+    description: "Capital of ancient Egypt. The Pyramids of Giza and the Great Sphinx rise nearby."
+  },
+  {
+    name: "Athens",
+    lat: 37.9838,
+    lng: 23.7275,
+    year: -800,
+    description: "Birthplace of democracy and classical Greek culture. The Acropolis dominates the skyline."
+  },
+  {
+    name: "Uruk",
+    lat: 31.3222,
+    lng: 45.6361,
+    year: -4000,
+    description: "One of the world’s first true cities in Mesopotamia."
+  },
+  {
+    name: "Anyang",
+    lat: 36.0996,
+    lng: 114.3460,
+    year: -1300,
+    description: "Shang Dynasty capital – early Chinese civilization and oracle bones."
+  },
+  {
+    name: "Caral",
+    lat: -10.8917,
+    lng: -77.5208,
+    year: -2600,
+    description: "One of the oldest cities in the Americas (Norte Chico civilization)."
+  }
+];
 
 function initMap() {
-  // Create the map centered on the world
   map = L.map("map", {
     center: [20, 0],
     zoom: 2,
@@ -16,26 +61,43 @@ function initMap() {
     zoomControl: true
   });
 
-  // Real OpenStreetMap tiles (this is what makes it look like Google Maps)
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 19
   }).addTo(map);
 
-  // Layers for our simulation objects
   cityLayer = L.layerGroup().addTo(map);
   peopleLayer = L.layerGroup().addTo(map);
   hospitalLayer = L.layerGroup().addTo(map);
+  historicalLayer = L.layerGroup().addTo(map);
 
-  // Update markers when zoom changes
+  // Add historical site markers
+  HISTORICAL_SITES.forEach(site => {
+    const marker = L.circleMarker([site.lat, site.lng], {
+      radius: 8,
+      fillColor: "#a78bfa",
+      color: "#5b21b6",
+      weight: 2,
+      fillOpacity: 0.7
+    });
+
+    marker.bindPopup(`
+      <strong>${site.name}</strong><br>
+      Important from ~${site.year < 0 ? Math.abs(site.year) + " BCE" : site.year + " CE"}<br>
+      ${site.description}<br><br>
+      <button onclick="zoomToHistorical('${site.name}')">Zoom to this place</button>
+    `);
+
+    historicalLayer.addLayer(marker);
+  });
+
   map.on("zoomend", () => {
     refreshMapMarkers();
   });
 }
 
-// Create a city marker
+// ---------- Markers ----------
 function createCityMarker(city) {
-  const zoom = map.getZoom();
   let radius = 6;
   let color = "#fbbf24";
 
@@ -57,7 +119,7 @@ function createCityMarker(city) {
     fillOpacity: 0.85
   });
 
-  let popupContent = `
+  let popup = `
     <strong>${city.name}</strong><br>
     Population: ${Math.floor(city.pop).toLocaleString()}<br>
     Level: ${["", "Village", "Town", "City", "Metropolis"][city.level]}<br>
@@ -65,35 +127,36 @@ function createCityMarker(city) {
     ${city.hasHospital ? "<br>🏥 Has Hospital" : ""}
   `;
 
-  marker.bindPopup(popupContent);
+  marker.bindPopup(popup);
 
   marker.on("click", () => {
     state.focus = city;
     state.focusType = "city";
     document.querySelector('[data-tab="focus"]').click();
-    if (typeof renderFocusPanel === "function") renderFocusPanel();
+    renderFocusPanel();
   });
 
   city.marker = marker;
   return marker;
 }
 
-// Create a small person marker (only shown at high zoom)
 function createPersonMarker(human) {
+  // Blue for male, Pink for female
+  const color = human.sex === "M" ? "#3b82f6" : "#ec4899";
+
   const marker = L.circleMarker([human.lat, human.lng], {
-    radius: 3.5,
-    fillColor: human.sex === "M" ? "#60a5fa" : "#f472b6",
-    color: "#1e293b",
-    weight: 1,
-    opacity: 0.9,
+    radius: 4,
+    fillColor: color,
+    color: "#0f172a",
+    weight: 1.5,
+    opacity: 1,
     fillOpacity: 0.9
   });
 
   marker.bindPopup(`
-    <strong>${human.name}</strong><br>
+    <strong style="color:${color}">${human.name}</strong><br>
     Age: ${human.age}<br>
-    Hunger: ${human.hungerLevel}<br>
-    Thirst: ${human.thirstLevel}<br>
+    Hunger: ${human.hungerLevel} | Thirst: ${human.thirstLevel}<br>
     ${human.livingDescription}
   `);
 
@@ -101,15 +164,14 @@ function createPersonMarker(human) {
     state.focus = human;
     state.focusType = "person";
     document.querySelector('[data-tab="focus"]').click();
-    if (typeof renderFocusPanel === "function") renderFocusPanel();
+    renderFocusPanel();
   });
 
   return marker;
 }
 
-// Create hospital marker
 function createHospitalMarker(city) {
-  const marker = L.marker([city.lat + 0.02, city.lng + 0.02], {
+  const marker = L.marker([city.lat + 0.015, city.lng + 0.015], {
     icon: L.divIcon({
       className: "hospital-icon",
       html: "🏥",
@@ -121,24 +183,21 @@ function createHospitalMarker(city) {
   return marker;
 }
 
-// Refresh all markers according to current zoom
 function refreshMapMarkers() {
   if (!map) return;
 
   const zoom = map.getZoom();
 
-  // Clear layers
   cityLayer.clearLayers();
   peopleLayer.clearLayers();
   hospitalLayer.clearLayers();
 
-  // Cities – always shown
+  // Cities always visible
   state.cities.forEach(city => {
-    const marker = createCityMarker(city);
-    cityLayer.addLayer(marker);
+    cityLayer.addLayer(createCityMarker(city));
   });
 
-  // Hospitals – shown from zoom 6 upward
+  // Hospitals from zoom 6+
   if (zoom >= 6) {
     state.cities.forEach(city => {
       if (city.hasHospital) {
@@ -147,11 +206,10 @@ function refreshMapMarkers() {
     });
   }
 
-  // People – only shown when zoomed in quite far (so it doesn't get messy)
+  // People only when zoomed in (to avoid clutter)
   if (zoom >= 9) {
-    // Limit how many people we draw for performance
     const alive = state.humans.filter(h => h.alive);
-    const maxPeople = zoom >= 12 ? 400 : 180;
+    const maxPeople = zoom >= 12 ? 450 : 200;
     const sample = alive.slice(0, maxPeople);
 
     sample.forEach(h => {
@@ -160,7 +218,39 @@ function refreshMapMarkers() {
   }
 }
 
-// ---------- UI functions ----------
+// ---------- Historical zoom helper ----------
+window.zoomToHistorical = function (name) {
+  const site = HISTORICAL_SITES.find(s => s.name === name);
+  if (!site || !map) return;
+
+  map.setView([site.lat, site.lng], 10);
+
+  // Try to find a matching city in the simulation
+  const city = state.cities.find(c => 
+    Math.hypot(c.lat - site.lat, c.lng - site.lng) < 1.5
+  );
+
+  if (city) {
+    state.focus = city;
+    state.focusType = "city";
+    document.querySelector('[data-tab="focus"]').click();
+    renderFocusPanel();
+  } else {
+    // Show info even if no simulated city exists yet
+    state.focus = {
+      name: site.name,
+      lat: site.lat,
+      lng: site.lng,
+      description: site.description,
+      year: site.year
+    };
+    state.focusType = "historical";
+    document.querySelector('[data-tab="focus"]').click();
+    renderFocusPanel();
+  }
+};
+
+// ---------- UI ----------
 function renderEvents() {
   const el = document.getElementById("eventLog");
   if (!el) return;
@@ -180,7 +270,6 @@ function updateUI() {
   document.getElementById("cityDisplay").textContent = state.cities.length;
   document.getElementById("aliveDisplay").textContent = state.humans.filter(h => h.alive).length;
 
-  // Stats
   document.getElementById("statGrid").innerHTML = `
     <div class="stat-card"><div class="label">Population</div><div class="value">${state.population.toLocaleString()}</div></div>
     <div class="stat-card"><div class="label">Living Agents</div><div class="value">${state.humans.filter(h => h.alive).length}</div></div>
@@ -192,7 +281,6 @@ function updateUI() {
     <div class="stat-card"><div class="label">Discoveries</div><div class="value">${state.discoveries}</div></div>
   `;
 
-  // Resources
   document.getElementById("envList").innerHTML = `
     <div class="res-item"><span>Food</span><span>${Math.floor(state.resources.food)}</span></div>
     <div class="res-item"><span>Wood</span><span>${Math.floor(state.resources.wood)}</span></div>
@@ -201,7 +289,6 @@ function updateUI() {
     <div class="res-item"><span>Knowledge</span><span>${Math.floor(state.resources.knowledge)}</span></div>
   `;
 
-  // Tech
   let techHtml = "";
   TECH_TREE.forEach(t => {
     const y = t.year < 0 ? Math.abs(t.year) + " BCE" : t.year + " CE";
@@ -211,7 +298,7 @@ function updateUI() {
   });
   document.getElementById("techList").innerHTML = techHtml;
 
-  // People list
+  // People list – blue / pink names
   const alive = state.humans.filter(h => h.alive);
   alive.sort((a, b) => b.age - a.age);
   const sample = alive.slice(0, 18);
@@ -221,9 +308,10 @@ function updateUI() {
     peopleHtml = '<div style="color:var(--muted)">No living people right now.</div>';
   } else {
     sample.forEach(h => {
+      const color = h.sex === "M" ? "#3b82f6" : "#ec4899";
       peopleHtml += `
         <div class="person-card" onclick="focusPerson(${h.id})">
-          <div class="name">${h.name}</div>
+          <div class="name" style="color:${color}">${h.name}</div>
           <div class="meta">age ${h.age}, hunger ${h.hungerLevel}, thirst ${h.thirstLevel}, ${h.livingDescription}</div>
         </div>`;
     });
@@ -240,16 +328,17 @@ function renderFocusPanel() {
   if (!state.focus) {
     panel.innerHTML = `
       <div style="color:var(--muted);font-size:0.85rem">
-        Click a city or person on the map.<br>
-        Zoom in to see more detail (countries → cities → people).
+        Click a city, person, or purple historical marker on the map.<br>
+        Zoom in to see more detail.
       </div>`;
     return;
   }
 
   if (state.focusType === "person") {
     const h = state.focus;
+    const color = h.sex === "M" ? "#3b82f6" : "#ec4899";
     panel.innerHTML = `
-      <div style="font-size:1.15rem;font-weight:600;color:#f472b6;margin-bottom:8px">${h.name}</div>
+      <div style="font-size:1.15rem;font-weight:600;color:${color};margin-bottom:8px">${h.name}</div>
       <div class="res-item"><span>Age</span><span>${h.age}</span></div>
       <div class="res-item"><span>Hunger</span><span>${h.hungerLevel}</span></div>
       <div class="res-item"><span>Thirst</span><span>${h.thirstLevel}</span></div>
@@ -258,7 +347,7 @@ function renderFocusPanel() {
       <div class="res-item"><span>Living</span><span>${h.livingDescription}</span></div>
       <div class="res-item"><span>Spouse</span><span>${h.spouse && h.spouse.alive ? h.spouse.name : "None"}</span></div>
       <div class="res-item"><span>Children</span><span>${h.children.filter(c => c.alive).length}</span></div>
-      <button class="focus-btn" onclick="zoomToPerson(${h.id})">Zoom to Person</button>
+      <button class="focus-btn" onclick="zoomToPerson(${h.id})" style="width:100%;margin-top:8px;background:var(--accent);border:none;color:white;padding:8px;border-radius:6px;cursor:pointer">Zoom to Person</button>
     `;
   } else if (state.focusType === "city") {
     const c = state.focus;
@@ -268,12 +357,20 @@ function renderFocusPanel() {
       <div class="res-item"><span>Level</span><span>${["", "Village", "Town", "City", "Metropolis"][c.level]}</span></div>
       <div class="res-item"><span>Nation</span><span>${c.nation ? c.nation.name : "Independent"}</span></div>
       <div class="res-item"><span>Hospital</span><span>${c.hasHospital ? "Yes 🏥" : "No"}</span></div>
-      <button class="focus-btn" onclick="zoomToCity()">Zoom to City</button>
+      <button class="focus-btn" onclick="zoomToCity()" style="width:100%;margin-top:8px;background:var(--accent);border:none;color:white;padding:8px;border-radius:6px;cursor:pointer">Zoom to City</button>
+    `;
+  } else if (state.focusType === "historical") {
+    const s = state.focus;
+    panel.innerHTML = `
+      <div style="font-size:1.15rem;font-weight:600;color:#a78bfa;margin-bottom:6px">${s.name}</div>
+      <div style="font-size:0.85rem;color:var(--muted);margin-bottom:10px">${s.description}</div>
+      <div class="res-item"><span>Important from</span><span>${s.year < 0 ? Math.abs(s.year) + " BCE" : s.year + " CE"}</span></div>
+      <button onclick="zoomToHistorical('${s.name}')" style="width:100%;margin-top:8px;background:#7c3aed;border:none;color:white;padding:8px;border-radius:6px;cursor:pointer">Zoom Here</button>
     `;
   }
 }
 
-// Global helpers used by HTML
+// Global helpers
 window.focusPerson = function (id) {
   const h = state.humans.find(p => p.id === id);
   if (!h) return;
@@ -323,6 +420,7 @@ document.querySelectorAll("[data-speed]").forEach(btn => {
 });
 
 document.querySelectorAll(".tab").forEach(tab => {
+  if (tab.id === "btnCollapseSidebar") return;
   tab.onclick = () => {
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     tab.classList.add("active");
@@ -331,16 +429,25 @@ document.querySelectorAll(".tab").forEach(tab => {
   };
 });
 
-// Timeline
+// Collapse sidebar
+document.getElementById("btnCollapseSidebar").addEventListener("click", () => {
+  document.getElementById("sidebar").classList.toggle("collapsed");
+});
+
+// Timeline – stronger update
 document.getElementById("timeline").addEventListener("input", e => {
   const target = parseInt(e.target.value, 10);
   state.year = target;
   state.era = getEra(state.year);
+
   TECH_TREE.forEach(t => {
     state.tech[t.id] = state.year >= t.year;
   });
+
   updatePop();
   updateUI();
+  refreshMapMarkers();
+
   document.getElementById("timelineLabel").textContent =
     state.year < 0 ? Math.abs(state.year) + " BCE" : state.year + " CE";
 });
@@ -365,7 +472,6 @@ startBtn.addEventListener("click", () => {
   document.getElementById("addBar").style.display = "flex";
   document.getElementById("startScreen").style.display = "none";
 
-  // Initialize map and world
   initMap();
   initWorld();
   state.running = true;

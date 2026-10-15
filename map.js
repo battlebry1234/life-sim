@@ -1,5 +1,5 @@
 // map.js
-// ===================== LEAFLET MAP + CITY DIVE MODE =====================
+// ===================== LEAFLET MAP + FULL CITY DIVE MODE =====================
 
 let map;
 let cityLayer;
@@ -16,6 +16,7 @@ let divePeople = [];
 let diveTrees = [];
 let diveBuildings = [];
 let diveAnimationId = null;
+let diveInfoBar = null;
 
 const HISTORICAL_SITES = [
   {
@@ -67,37 +68,43 @@ const CITY_DIVE_DATA = {
     year: -50,
     title: "Rome – Heart of the Empire",
     description: "The Forum is alive. Soldiers, senators, merchants and families fill the streets.",
-    roles: ["Senator", "Legionary", "Merchant", "Farmer", "Builder", "Priest", "Slave"]
+    maleRoles: ["Legionary", "Builder", "Farmer", "Merchant", "Senator", "Guard"],
+    femaleRoles: ["Homemaker", "Childcare", "Merchant", "Priestess", "Weaver"]
   },
   "Memphis (Egypt)": {
     year: -2500,
     title: "Memphis – Age of the Pyramids",
-    description: "Workers, priests and overseers move around the great building projects. The Sphinx watches.",
-    roles: ["Priest", "Builder", "Overseer", "Farmer", "Scribe", "Soldier"]
+    description: "Workers, priests and overseers move around the great building projects.",
+    maleRoles: ["Builder", "Overseer", "Soldier", "Farmer", "Scribe"],
+    femaleRoles: ["Homemaker", "Childcare", "Priestess", "Weaver", "Farmer"]
   },
   "Athens": {
     year: -450,
     title: "Athens – Golden Age",
     description: "Philosophers, citizens and artisans fill the agora beneath the Acropolis.",
-    roles: ["Citizen", "Philosopher", "Soldier", "Merchant", "Artisan", "Farmer"]
+    maleRoles: ["Citizen", "Soldier", "Philosopher", "Merchant", "Artisan"],
+    femaleRoles: ["Homemaker", "Childcare", "Weaver", "Merchant"]
   },
   "Uruk": {
     year: -3500,
     title: "Uruk – First Great City",
     description: "The earliest urban life. Temples rise and trade begins.",
-    roles: ["Priest", "Farmer", "Craftsman", "Trader", "Guard"]
+    maleRoles: ["Guard", "Farmer", "Craftsman", "Trader", "Builder"],
+    femaleRoles: ["Homemaker", "Childcare", "Priestess", "Weaver"]
   },
   "Anyang": {
     year: -1200,
     title: "Anyang – Shang Capital",
     description: "Bronze workers, diviners and royal attendants move through the city.",
-    roles: ["Diviner", "Bronze Worker", "Soldier", "Farmer", "Noble"]
+    maleRoles: ["Soldier", "Bronze Worker", "Farmer", "Diviner", "Noble"],
+    femaleRoles: ["Homemaker", "Childcare", "Weaver", "Noble"]
   },
   "Caral": {
     year: -2200,
     title: "Caral – Ancient Andes",
     description: "Pyramid builders and farmers of the Norte Chico civilization.",
-    roles: ["Builder", "Farmer", "Priest", "Fisher"]
+    maleRoles: ["Builder", "Farmer", "Fisher", "Guard"],
+    femaleRoles: ["Homemaker", "Childcare", "Farmer", "Weaver"]
   }
 };
 
@@ -120,7 +127,6 @@ function initMap() {
   hospitalLayer = L.layerGroup().addTo(map);
   historicalLayer = L.layerGroup().addTo(map);
 
-  // Historical markers
   HISTORICAL_SITES.forEach(site => {
     const marker = L.circleMarker([site.lat, site.lng], {
       radius: 9,
@@ -147,7 +153,7 @@ function initMap() {
   });
 }
 
-// ---------- Normal markers ----------
+// ---------- Normal map markers ----------
 function createCityMarker(city) {
   let radius = 6;
   let color = "#fbbf24";
@@ -260,7 +266,7 @@ function enterCityDive(siteName) {
   cityDiveActive = true;
   diveCity = siteName;
 
-  // Jump time to thriving period
+  // Jump time to the thriving period
   state.year = data.year;
   state.era = getEra(state.year);
   TECH_TREE.forEach(t => {
@@ -276,7 +282,7 @@ function enterCityDive(siteName) {
   document.querySelector(".god-panel").style.display = "none";
   document.getElementById("sidebar").style.display = "none";
 
-  // Create dive canvas if needed
+  // Create elements if needed
   if (!diveCanvas) {
     diveCanvas = document.createElement("canvas");
     diveCanvas.id = "cityDiveCanvas";
@@ -304,6 +310,17 @@ function enterCityDive(siteName) {
       border:1px solid #334155;text-align:center;max-width:90%;
     `;
     document.body.appendChild(title);
+
+    // Bottom info bar
+    diveInfoBar = document.createElement("div");
+    diveInfoBar.id = "diveInfoBar";
+    diveInfoBar.style.cssText = `
+      position:fixed;bottom:0;left:0;right:0;z-index:3001;
+      background:rgba(15,23,42,0.96);border-top:1px solid #334155;
+      padding:12px 20px;color:white;font-size:0.9rem;
+      display:none;align-items:center;justify-content:space-between;gap:12px;
+    `;
+    document.body.appendChild(diveInfoBar);
   }
 
   document.getElementById("diveTitle").innerHTML = `
@@ -314,6 +331,7 @@ function enterCityDive(siteName) {
   diveCanvas.style.display = "block";
   document.getElementById("exitDiveBtn").style.display = "block";
   document.getElementById("diveTitle").style.display = "block";
+  diveInfoBar.style.display = "none";
 
   generateDiveScene(data);
   resizeDiveCanvas();
@@ -329,6 +347,7 @@ function exitCityDive() {
   const title = document.getElementById("diveTitle");
   if (exitBtn) exitBtn.style.display = "none";
   if (title) title.style.display = "none";
+  if (diveInfoBar) diveInfoBar.style.display = "none";
 
   document.querySelector(".timeline-bar").style.display = "flex";
   document.querySelector(".add-bar").style.display = "flex";
@@ -345,6 +364,14 @@ function resizeDiveCanvas() {
   diveCanvas.height = window.innerHeight;
 }
 
+function makeDiveName(sex) {
+  const maleFirst = ["Marcus","Lucius","Gaius","Titus","Quintus","Appius","Publius"];
+  const femaleFirst = ["Julia","Livia","Cornelia","Aurelia","Octavia","Flavia","Claudia"];
+  const last = ["Maximus","Severus","Varus","Cato","Flaccus","Rufus","Nero"];
+  const first = sex === "M" ? maleFirst : femaleFirst;
+  return first[Math.floor(Math.random() * first.length)] + " " + last[Math.floor(Math.random() * last.length)];
+}
+
 function generateDiveScene(data) {
   divePeople = [];
   diveTrees = [];
@@ -354,7 +381,7 @@ function generateDiveScene(data) {
   const h = window.innerHeight;
 
   // Buildings
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 18; i++) {
     diveBuildings.push({
       x: 60 + Math.random() * (w - 140),
       y: 110 + Math.random() * (h - 260),
@@ -365,7 +392,7 @@ function generateDiveScene(data) {
   }
 
   // Trees
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 38; i++) {
     diveTrees.push({
       x: Math.random() * w,
       y: 90 + Math.random() * (h - 180),
@@ -373,38 +400,69 @@ function generateDiveScene(data) {
     });
   }
 
-  // Adult figures
-  for (let i = 0; i < 60; i++) {
+  // Adults
+  for (let i = 0; i < 52; i++) {
     const sex = Math.random() < 0.5 ? "M" : "F";
+    const roleList = sex === "M" ? data.maleRoles : data.femaleRoles;
     divePeople.push({
       x: 50 + Math.random() * (w - 100),
       y: 130 + Math.random() * (h - 240),
       sex: sex,
-      isAdult: true,
-      role: data.roles[Math.floor(Math.random() * data.roles.length)],
-      name: (sex === "M" ? 
-        ["Marcus","Lucius","Gaius","Titus","Quintus","Appius"][Math.floor(Math.random()*6)] :
-        ["Julia","Livia","Cornelia","Aurelia","Octavia","Flavia"][Math.floor(Math.random()*6)]) + " " +
-        ["Maximus","Severus","Varus","Cato","Flaccus","Rufus"][Math.floor(Math.random()*6)],
-      age: 18 + Math.floor(Math.random() * 42),
-      vx: (Math.random() - 0.5) * 0.55,
-      vy: (Math.random() - 0.5) * 0.55
+      type: "adult",
+      role: roleList[Math.floor(Math.random() * roleList.length)],
+      name: makeDiveName(sex),
+      age: 18 + Math.floor(Math.random() * 40),
+      spouse: null,
+      children: 0,
+      married: false,
+      glowTimer: 0,
+      goingHome: false,
+      homeX: null,
+      homeY: null,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5
     });
   }
 
-  // Children (small dots)
-  for (let i = 0; i < 28; i++) {
+  // Children
+  for (let i = 0; i < 18; i++) {
     const sex = Math.random() < 0.5 ? "M" : "F";
     divePeople.push({
       x: 50 + Math.random() * (w - 100),
       y: 130 + Math.random() * (h - 240),
       sex: sex,
-      isAdult: false,
+      type: "child",
       role: "Child",
       name: "Young " + (sex === "M" ? "Boy" : "Girl"),
-      age: Math.floor(Math.random() * 11),
-      vx: (Math.random() - 0.5) * 0.85,
-      vy: (Math.random() - 0.5) * 0.85
+      age: 3 + Math.floor(Math.random() * 10),
+      spouse: null,
+      children: 0,
+      married: false,
+      glowTimer: 0,
+      goingHome: false,
+      vx: (Math.random() - 0.5) * 0.8,
+      vy: (Math.random() - 0.5) * 0.8
+    });
+  }
+
+  // Babies
+  for (let i = 0; i < 12; i++) {
+    const sex = Math.random() < 0.5 ? "M" : "F";
+    divePeople.push({
+      x: 50 + Math.random() * (w - 100),
+      y: 130 + Math.random() * (h - 240),
+      sex: sex,
+      type: "baby",
+      role: "Baby",
+      name: sex === "M" ? "Baby Boy" : "Baby Girl",
+      age: Math.floor(Math.random() * 2),
+      spouse: null,
+      children: 0,
+      married: false,
+      glowTimer: 0,
+      goingHome: false,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3
     });
   }
 }
@@ -420,7 +478,7 @@ function drawDiveScene() {
   ctx.fillStyle = "#243c24";
   ctx.fillRect(0, 0, w, h);
 
-  // Simple roads
+  // Roads
   ctx.strokeStyle = "#475569";
   ctx.lineWidth = 16;
   ctx.beginPath();
@@ -436,7 +494,6 @@ function drawDiveScene() {
   diveBuildings.forEach(b => {
     ctx.fillStyle = b.type === "temple" ? "#a78bfa" : "#94a3b8";
     ctx.fillRect(b.x, b.y, b.w, b.h);
-    // roof
     ctx.fillStyle = "#64748b";
     ctx.beginPath();
     ctx.moveTo(b.x - 5, b.y);
@@ -455,33 +512,141 @@ function drawDiveScene() {
     ctx.fill();
   });
 
-  // People
-  divePeople.forEach(p => {
-    p.x += p.vx;
-    p.y += p.vy;
-    if (p.x < 25 || p.x > w - 25) p.vx *= -1;
-    if (p.y < 90 || p.y > h - 30) p.vy *= -1;
+  // People + marriage logic
+  for (let i = 0; i < divePeople.length; i++) {
+    const p = divePeople[i];
 
-    if (p.isAdult) {
+    // Movement
+    if (!p.goingHome) {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 25 || p.x > w - 25) p.vx *= -1;
+      if (p.y < 90 || p.y > h - 30) p.vy *= -1;
+    } else {
+      const dx = p.homeX - p.x;
+      const dy = p.homeY - p.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 4) {
+        p.x += (dx / dist) * 1.1;
+        p.y += (dy / dist) * 1.1;
+      }
+    }
+
+    if (p.glowTimer > 0) p.glowTimer--;
+
+    // Marriage chance when adults of opposite sex get close
+    if (p.type === "adult" && !p.married && Math.random() < 0.0018) {
+      for (let j = i + 1; j < divePeople.length; j++) {
+        const other = divePeople[j];
+        if (other.type !== "adult" || other.married || other.sex === p.sex) continue;
+
+        const dist = Math.hypot(p.x - other.x, p.y - other.y);
+        if (dist < 26 && Math.random() < 0.5) {
+          // Get married
+          p.married = true;
+          other.married = true;
+          p.spouse = other.name;
+          other.spouse = p.name;
+          p.glowTimer = 100;
+          other.glowTimer = 100;
+
+          // Go home together
+          const homeX = 80 + Math.random() * (w - 160);
+          const homeY = 140 + Math.random() * (h - 280);
+          p.goingHome = true;
+          other.goingHome = true;
+          p.homeX = homeX;
+          p.homeY = homeY;
+          other.homeX = homeX;
+          other.homeY = homeY;
+
+          // Often have a baby
+          if (Math.random() < 0.7) {
+            p.children++;
+            other.children++;
+            const babySex = Math.random() < 0.5 ? "M" : "F";
+            divePeople.push({
+              x: homeX + (Math.random() - 0.5) * 18,
+              y: homeY + (Math.random() - 0.5) * 18,
+              sex: babySex,
+              type: "baby",
+              role: "Baby",
+              name: babySex === "M" ? "Baby Boy" : "Baby Girl",
+              age: 0,
+              spouse: null,
+              children: 0,
+              married: false,
+              glowTimer: 0,
+              goingHome: false,
+              vx: 0,
+              vy: 0
+            });
+          }
+          break;
+        }
+      }
+    }
+
+    // Draw person
+    if (p.type === "adult") {
       const color = p.sex === "M" ? "#3b82f6" : "#ec4899";
-      // body
+
+      // Yellow marriage glow
+      if (p.glowTimer > 0) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y - 12, 17, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(250, 204, 21, ${p.glowTimer / 100 * 0.5})`;
+        ctx.fill();
+      }
+
+      // Body
       ctx.fillStyle = color;
       ctx.fillRect(p.x - 5, p.y - 17, 10, 15);
-      // head
+      // Head
       ctx.beginPath();
       ctx.arc(p.x, p.y - 23, 6.5, 0, Math.PI * 2);
       ctx.fill();
-      // legs
+      // Legs
       ctx.fillRect(p.x - 5, p.y - 2, 3.5, 9);
       ctx.fillRect(p.x + 1.5, p.y - 2, 3.5, 9);
-    } else {
-      // child = small dot
+    } else if (p.type === "child") {
       ctx.fillStyle = p.sex === "M" ? "#60a5fa" : "#f472b6";
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 4.2, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Baby – smaller and lighter
+      ctx.fillStyle = p.sex === "M" ? "#93c5fd" : "#f9a8d4";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3.3, 0, Math.PI * 2);
       ctx.fill();
     }
-  });
+  }
+}
+
+function showDivePersonInfo(p) {
+  if (!diveInfoBar) return;
+
+  const status = p.married ? `Married to ${p.spouse}` : "Single";
+  const kids = p.children > 0 ? `${p.children} child${p.children > 1 ? "ren" : ""}` : "No children";
+  const typeLabel = p.type === "adult" ? "Adult" : p.type === "child" ? "Child" : "Baby";
+  const color = p.sex === "M" ? "#3b82f6" : "#ec4899";
+
+  diveInfoBar.innerHTML = `
+    <div>
+      <strong style="color:${color}">${p.name}</strong>
+      &nbsp;•&nbsp; ${typeLabel}
+      &nbsp;•&nbsp; Age ${p.age}
+      &nbsp;•&nbsp; Role: <strong>${p.role}</strong>
+      &nbsp;•&nbsp; ${status}
+      &nbsp;•&nbsp; ${kids}
+    </div>
+    <button onclick="document.getElementById('diveInfoBar').style.display='none'"
+            style="background:#334155;border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;">
+      Close
+    </button>
+  `;
+  diveInfoBar.style.display = "flex";
 }
 
 function startDiveLoop() {
@@ -493,10 +658,10 @@ function startDiveLoop() {
   loop();
 }
 
-// Click people inside dive mode
+// Click people in dive mode → show bottom info bar
 document.addEventListener("click", (e) => {
   if (!cityDiveActive || !diveCanvas) return;
-  if (e.target.id === "exitDiveBtn" || e.target.closest("#diveTitle")) return;
+  if (e.target.id === "exitDiveBtn" || e.target.closest("#diveTitle") || e.target.closest("#diveInfoBar")) return;
 
   const rect = diveCanvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
@@ -504,13 +669,9 @@ document.addEventListener("click", (e) => {
 
   for (const p of divePeople) {
     const dist = Math.hypot(p.x - mx, p.y - my);
-    if (dist < 20) {
-      alert(
-        `${p.name}\n` +
-        `Age: ${p.age}\n` +
-        `Role: ${p.role}\n` +
-        `${p.sex === "M" ? "Male" : "Female"} ${p.isAdult ? "Adult" : "Child"}`
-      );
+    const hitRadius = p.type === "adult" ? 18 : p.type === "child" ? 12 : 9;
+    if (dist < hitRadius) {
+      showDivePersonInfo(p);
       break;
     }
   }
@@ -529,13 +690,12 @@ window.zoomToHistorical = function (name) {
     map.setView([site.lat, site.lng], 8);
   }
 
-  // Enter the detailed city dive after a short delay
   setTimeout(() => {
     enterCityDive(name);
   }, 700);
 };
 
-// ---------- UI functions ----------
+// ---------- UI ----------
 function renderEvents() {
   const el = document.getElementById("eventLog");
   if (!el) return;

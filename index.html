@@ -4,15 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Civilization Maps – Creator Mode</title>
-
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-  <!-- Start Screen -->
   <div id="startScreen">
     <h1>🌍 Civilization Maps</h1>
     <p>You are about to become the Creator of this world.<br>Enter your name to begin.</p>
@@ -43,14 +39,12 @@
   <main>
     <div id="map"></div>
 
-    <!-- Creator panel -->
     <div class="god-panel" id="godPanel" style="display:none">
       <div class="god-name" id="godName">Creator</div>
       <div class="god-figure">👁️‍🗨️</div>
       <div class="god-label">The Creator</div>
     </div>
 
-    <!-- Add bar -->
     <div class="add-bar" id="addBar" style="display:none">
       <button onclick="addTrees()">🌲 Trees</button>
       <button onclick="addHumans()">👤 Humans</button>
@@ -67,14 +61,16 @@
     </div>
   </main>
 
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
     <div class="tabs">
       <div class="tab active" data-tab="events">Events</div>
       <div class="tab" data-tab="stats">Stats</div>
       <div class="tab" data-tab="focus">Focus</div>
       <div class="tab" data-tab="people">People</div>
       <div class="tab" data-tab="tech">Tech</div>
+      <div class="tab collapse-tab" id="btnCollapseSidebar" title="Collapse / Expand">◀</div>
     </div>
+
     <div class="tab-content" id="tab-events">
       <div class="panel-section"><h3>Event Log</h3><div class="event-log" id="eventLog"></div></div>
     </div>
@@ -94,10 +90,9 @@
   </div>
 
   <footer>
-    <div>Real map base (OpenStreetMap) • Continents → Countries → Cities as you zoom • Hospitals added</div>
+    <div>Real map • Blue = Male • Pink = Female • Collapse sidebar with ◀ • Click Rome / Egypt etc.</div>
   </footer>
 
-  <!-- Libraries -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="simulation.js"></script>
   <script src="map.js"></script>

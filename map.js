@@ -1,5 +1,5 @@
 // map.js
-// ===================== LEAFLET MAP + FULL CITY DIVE MODE =====================
+// ===================== FULL FILE – LEAFLET + CITY DIVE =====================
 
 let map;
 let cityLayer;
@@ -266,12 +266,10 @@ function enterCityDive(siteName) {
   cityDiveActive = true;
   diveCity = siteName;
 
-  // Jump time to the thriving period
+  // Jump time
   state.year = data.year;
   state.era = getEra(state.year);
-  TECH_TREE.forEach(t => {
-    state.tech[t.id] = state.year >= t.year;
-  });
+  TECH_TREE.forEach(t => state.tech[t.id] = state.year >= t.year);
   document.getElementById("timeline").value = state.year;
   document.getElementById("timelineLabel").textContent =
     state.year < 0 ? Math.abs(state.year) + " BCE" : state.year + " CE";
@@ -282,7 +280,6 @@ function enterCityDive(siteName) {
   document.querySelector(".god-panel").style.display = "none";
   document.getElementById("sidebar").style.display = "none";
 
-  // Create elements if needed
   if (!diveCanvas) {
     diveCanvas = document.createElement("canvas");
     diveCanvas.id = "cityDiveCanvas";
@@ -296,8 +293,7 @@ function enterCityDive(siteName) {
     exitBtn.style.cssText = `
       position:fixed;top:16px;left:16px;z-index:3001;
       background:#1e293b;color:white;border:1px solid #334155;
-      padding:10px 18px;border-radius:8px;cursor:pointer;font-size:0.9rem;
-    `;
+      padding:10px 18px;border-radius:8px;cursor:pointer;font-size:0.9rem;`;
     exitBtn.onclick = exitCityDive;
     document.body.appendChild(exitBtn);
 
@@ -307,26 +303,22 @@ function enterCityDive(siteName) {
       position:fixed;top:16px;left:50%;transform:translateX(-50%);
       z-index:3001;background:rgba(15,23,42,0.92);color:#fbbf24;
       padding:10px 24px;border-radius:10px;font-weight:600;font-size:1.1rem;
-      border:1px solid #334155;text-align:center;max-width:90%;
-    `;
+      border:1px solid #334155;text-align:center;max-width:90%;`;
     document.body.appendChild(title);
 
-    // Bottom info bar
     diveInfoBar = document.createElement("div");
     diveInfoBar.id = "diveInfoBar";
     diveInfoBar.style.cssText = `
       position:fixed;bottom:0;left:0;right:0;z-index:3001;
       background:rgba(15,23,42,0.96);border-top:1px solid #334155;
       padding:12px 20px;color:white;font-size:0.9rem;
-      display:none;align-items:center;justify-content:space-between;gap:12px;
-    `;
+      display:none;align-items:center;justify-content:space-between;gap:12px;`;
     document.body.appendChild(diveInfoBar);
   }
 
   document.getElementById("diveTitle").innerHTML = `
     ${data.title}<br>
-    <span style="font-size:0.75rem;color:#94a3b8;font-weight:400">${data.description}</span>
-  `;
+    <span style="font-size:0.75rem;color:#94a3b8;font-weight:400">${data.description}</span>`;
 
   diveCanvas.style.display = "block";
   document.getElementById("exitDiveBtn").style.display = "block";
@@ -343,10 +335,8 @@ function exitCityDive() {
   if (diveAnimationId) cancelAnimationFrame(diveAnimationId);
 
   if (diveCanvas) diveCanvas.style.display = "none";
-  const exitBtn = document.getElementById("exitDiveBtn");
-  const title = document.getElementById("diveTitle");
-  if (exitBtn) exitBtn.style.display = "none";
-  if (title) title.style.display = "none";
+  document.getElementById("exitDiveBtn").style.display = "none";
+  document.getElementById("diveTitle").style.display = "none";
   if (diveInfoBar) diveInfoBar.style.display = "none";
 
   document.querySelector(".timeline-bar").style.display = "flex";
@@ -369,7 +359,7 @@ function makeDiveName(sex) {
   const femaleFirst = ["Julia","Livia","Cornelia","Aurelia","Octavia","Flavia","Claudia"];
   const last = ["Maximus","Severus","Varus","Cato","Flaccus","Rufus","Nero"];
   const first = sex === "M" ? maleFirst : femaleFirst;
-  return first[Math.floor(Math.random() * first.length)] + " " + last[Math.floor(Math.random() * last.length)];
+  return first[Math.floor(Math.random()*first.length)] + " " + last[Math.floor(Math.random()*last.length)];
 }
 
 function generateDiveScene(data) {
@@ -380,89 +370,106 @@ function generateDiveScene(data) {
   const w = window.innerWidth;
   const h = window.innerHeight;
 
-  // Buildings
-  for (let i = 0; i < 18; i++) {
+  // Houses first so we can assign them
+  for (let i = 0; i < 16; i++) {
     diveBuildings.push({
-      x: 60 + Math.random() * (w - 140),
-      y: 110 + Math.random() * (h - 260),
-      w: 36 + Math.random() * 70,
-      h: 32 + Math.random() * 55,
-      type: Math.random() > 0.72 ? "temple" : "house"
+      x: 70 + Math.random() * (w - 160),
+      y: 120 + Math.random() * (h - 280),
+      w: 42 + Math.random() * 55,
+      h: 36 + Math.random() * 45,
+      type: Math.random() > 0.78 ? "temple" : "house",
+      owner: null
     });
   }
 
   // Trees
-  for (let i = 0; i < 38; i++) {
+  for (let i = 0; i < 32; i++) {
     diveTrees.push({
       x: Math.random() * w,
-      y: 90 + Math.random() * (h - 180),
-      size: 11 + Math.random() * 17
+      y: 100 + Math.random() * (h - 200),
+      size: 14 + Math.random() * 16,
+      health: 100
     });
   }
 
   // Adults
-  for (let i = 0; i < 52; i++) {
+  for (let i = 0; i < 48; i++) {
     const sex = Math.random() < 0.5 ? "M" : "F";
     const roleList = sex === "M" ? data.maleRoles : data.femaleRoles;
-    divePeople.push({
-      x: 50 + Math.random() * (w - 100),
-      y: 130 + Math.random() * (h - 240),
-      sex: sex,
+    const role = roleList[Math.floor(Math.random() * roleList.length)];
+
+    const person = {
+      x: 60 + Math.random() * (w - 120),
+      y: 140 + Math.random() * (h - 260),
+      sex,
       type: "adult",
-      role: roleList[Math.floor(Math.random() * roleList.length)],
+      role,
       name: makeDiveName(sex),
-      age: 18 + Math.floor(Math.random() * 40),
+      age: 18 + Math.floor(Math.random() * 38),
       spouse: null,
       children: 0,
       married: false,
       glowTimer: 0,
+      house: null,
       goingHome: false,
-      homeX: null,
-      homeY: null,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5
-    });
+      chopping: false,
+      fighting: false,
+      fightTarget: null,
+      fightTimer: 0,
+      targetTree: null,
+      vx: (Math.random() - 0.5) * 0.45,
+      vy: (Math.random() - 0.5) * 0.45
+    };
+
+    // Assign house to some adults
+    const freeHouse = diveBuildings.find(b => b.type === "house" && !b.owner);
+    if (freeHouse && Math.random() < 0.55) {
+      freeHouse.owner = person;
+      person.house = freeHouse;
+    }
+
+    divePeople.push(person);
   }
 
   // Children
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 16; i++) {
     const sex = Math.random() < 0.5 ? "M" : "F";
     divePeople.push({
-      x: 50 + Math.random() * (w - 100),
-      y: 130 + Math.random() * (h - 240),
-      sex: sex,
+      x: 60 + Math.random() * (w - 120),
+      y: 140 + Math.random() * (h - 260),
+      sex,
       type: "child",
       role: "Child",
       name: "Young " + (sex === "M" ? "Boy" : "Girl"),
-      age: 3 + Math.floor(Math.random() * 10),
+      age: 3 + Math.floor(Math.random() * 9),
       spouse: null,
       children: 0,
       married: false,
       glowTimer: 0,
-      goingHome: false,
-      vx: (Math.random() - 0.5) * 0.8,
-      vy: (Math.random() - 0.5) * 0.8
+      house: null,
+      vx: (Math.random() - 0.5) * 0.75,
+      vy: (Math.random() - 0.5) * 0.75
     });
   }
 
   // Babies
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 10; i++) {
     const sex = Math.random() < 0.5 ? "M" : "F";
     divePeople.push({
-      x: 50 + Math.random() * (w - 100),
-      y: 130 + Math.random() * (h - 240),
-      sex: sex,
+      x: 60 + Math.random() * (w - 120),
+      y: 140 + Math.random() * (h - 260),
+      sex,
       type: "baby",
       role: "Baby",
       name: sex === "M" ? "Baby Boy" : "Baby Girl",
-      age: Math.floor(Math.random() * 2),
+      age: 0,
       spouse: null,
       children: 0,
       married: false,
       glowTimer: 0,
-      goingHome: false,
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: (Math.random() - 0.5) * 0.3
+      house: null,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: (Math.random() - 0.5) * 0.25
     });
   }
 }
@@ -480,7 +487,7 @@ function drawDiveScene() {
 
   // Roads
   ctx.strokeStyle = "#475569";
-  ctx.lineWidth = 16;
+  ctx.lineWidth = 15;
   ctx.beginPath();
   ctx.moveTo(0, h * 0.52);
   ctx.lineTo(w, h * 0.52);
@@ -496,78 +503,158 @@ function drawDiveScene() {
     ctx.fillRect(b.x, b.y, b.w, b.h);
     ctx.fillStyle = "#64748b";
     ctx.beginPath();
-    ctx.moveTo(b.x - 5, b.y);
-    ctx.lineTo(b.x + b.w / 2, b.y - 16);
-    ctx.lineTo(b.x + b.w + 5, b.y);
+    ctx.moveTo(b.x - 4, b.y);
+    ctx.lineTo(b.x + b.w / 2, b.y - 15);
+    ctx.lineTo(b.x + b.w + 4, b.y);
     ctx.fill();
+
+    if (b.owner) {
+      ctx.fillStyle = "rgba(251, 191, 36, 0.7)";
+      ctx.fillRect(b.x + 4, b.y + 4, 8, 8);
+    }
   });
 
   // Trees
   diveTrees.forEach(t => {
+    if (t.health <= 0) return;
     ctx.fillStyle = "#78350f";
-    ctx.fillRect(t.x - 3, t.y, 6, t.size * 0.55);
+    ctx.fillRect(t.x - 3, t.y, 6, t.size * 0.5 * (t.health / 100));
     ctx.fillStyle = "#166534";
     ctx.beginPath();
-    ctx.arc(t.x, t.y - 5, t.size * 0.65, 0, Math.PI * 2);
+    ctx.arc(t.x, t.y - 4, t.size * 0.6 * (t.health / 100), 0, Math.PI * 2);
     ctx.fill();
   });
 
-  // People + marriage logic
+  // People
   for (let i = 0; i < divePeople.length; i++) {
     const p = divePeople[i];
 
+    // Homemakers stay near house
+    if (p.type === "adult" && (p.role === "Homemaker" || p.role === "Childcare") && p.house) {
+      const hx = p.house.x + p.house.w / 2;
+      const hy = p.house.y + p.house.h / 2;
+      const dist = Math.hypot(p.x - hx, p.y - hy);
+      if (dist > 45) {
+        p.vx = (hx - p.x) * 0.02;
+        p.vy = (hy - p.y) * 0.02;
+      } else {
+        p.vx *= 0.9;
+        p.vy *= 0.9;
+      }
+    }
+
+    // Builders / Farmers chop trees
+    if (p.type === "adult" && (p.role === "Builder" || p.role === "Farmer") && !p.chopping && Math.random() < 0.004) {
+      const tree = diveTrees.find(t => t.health > 20);
+      if (tree) {
+        p.chopping = true;
+        p.targetTree = tree;
+      }
+    }
+
+    if (p.chopping && p.targetTree) {
+      const t = p.targetTree;
+      const dist = Math.hypot(p.x - t.x, p.y - t.y);
+      if (dist > 18) {
+        p.vx = (t.x - p.x) * 0.03;
+        p.vy = (t.y - p.y) * 0.03;
+      } else {
+        t.health -= 0.4;
+        p.vx = 0;
+        p.vy = 0;
+        if (t.health <= 0) {
+          p.chopping = false;
+          p.targetTree = null;
+        }
+      }
+    }
+
+    // Fighters
+    if (p.type === "adult" && (p.role === "Legionary" || p.role === "Soldier" || p.role === "Guard") && !p.fighting && Math.random() < 0.003) {
+      const enemy = divePeople.find(o =>
+        o !== p && o.type === "adult" &&
+        (o.role === "Legionary" || o.role === "Soldier" || o.role === "Guard") &&
+        !o.fighting
+      );
+      if (enemy) {
+        p.fighting = true;
+        enemy.fighting = true;
+        p.fightTarget = enemy;
+        enemy.fightTarget = p;
+        p.fightTimer = 120;
+        enemy.fightTimer = 120;
+      }
+    }
+
+    if (p.fighting && p.fightTarget) {
+      const target = p.fightTarget;
+      const dist = Math.hypot(p.x - target.x, p.y - target.y);
+      if (dist > 22) {
+        p.vx = (target.x - p.x) * 0.04;
+        p.vy = (target.y - p.y) * 0.04;
+      } else {
+        p.vx = 0;
+        p.vy = 0;
+      }
+      p.fightTimer--;
+      if (p.fightTimer <= 0) {
+        p.fighting = false;
+        p.fightTarget = null;
+      }
+    }
+
     // Movement
-    if (!p.goingHome) {
+    if (!p.goingHome && !p.chopping && !p.fighting) {
       p.x += p.vx;
       p.y += p.vy;
-      if (p.x < 25 || p.x > w - 25) p.vx *= -1;
-      if (p.y < 90 || p.y > h - 30) p.vy *= -1;
-    } else {
-      const dx = p.homeX - p.x;
-      const dy = p.homeY - p.y;
-      const dist = Math.hypot(dx, dy);
-      if (dist > 4) {
-        p.x += (dx / dist) * 1.1;
-        p.y += (dy / dist) * 1.1;
+      if (p.x < 30 || p.x > w - 30) p.vx *= -1;
+      if (p.y < 100 || p.y > h - 40) p.vy *= -1;
+    } else if (p.goingHome && p.house) {
+      const hx = p.house.x + p.house.w / 2;
+      const hy = p.house.y + p.house.h / 2;
+      const dist = Math.hypot(p.x - hx, p.y - hy);
+      if (dist > 8) {
+        p.x += (hx - p.x) * 0.04;
+        p.y += (hy - p.y) * 0.04;
       }
     }
 
     if (p.glowTimer > 0) p.glowTimer--;
 
-    // Marriage chance when adults of opposite sex get close
-    if (p.type === "adult" && !p.married && Math.random() < 0.0018) {
+    // Marriage
+    if (p.type === "adult" && !p.married && Math.random() < 0.0015) {
       for (let j = i + 1; j < divePeople.length; j++) {
         const other = divePeople[j];
         if (other.type !== "adult" || other.married || other.sex === p.sex) continue;
 
         const dist = Math.hypot(p.x - other.x, p.y - other.y);
-        if (dist < 26 && Math.random() < 0.5) {
-          // Get married
+        if (dist < 24 && Math.random() < 0.5) {
           p.married = true;
           other.married = true;
           p.spouse = other.name;
           other.spouse = p.name;
-          p.glowTimer = 100;
-          other.glowTimer = 100;
+          p.glowTimer = 90;
+          other.glowTimer = 90;
 
-          // Go home together
-          const homeX = 80 + Math.random() * (w - 160);
-          const homeY = 140 + Math.random() * (h - 280);
-          p.goingHome = true;
-          other.goingHome = true;
-          p.homeX = homeX;
-          p.homeY = homeY;
-          other.homeX = homeX;
-          other.homeY = homeY;
+          let house = p.house || other.house;
+          if (!house) {
+            house = diveBuildings.find(b => b.type === "house" && !b.owner);
+          }
+          if (house) {
+            house.owner = p;
+            p.house = house;
+            other.house = house;
+            p.goingHome = true;
+            other.goingHome = true;
+          }
 
-          // Often have a baby
-          if (Math.random() < 0.7) {
+          if (Math.random() < 0.65) {
             p.children++;
             other.children++;
             const babySex = Math.random() < 0.5 ? "M" : "F";
             divePeople.push({
-              x: homeX + (Math.random() - 0.5) * 18,
-              y: homeY + (Math.random() - 0.5) * 18,
+              x: (p.x + other.x) / 2,
+              y: (p.y + other.y) / 2,
               sex: babySex,
               type: "baby",
               role: "Baby",
@@ -577,9 +664,8 @@ function drawDiveScene() {
               children: 0,
               married: false,
               glowTimer: 0,
-              goingHome: false,
-              vx: 0,
-              vy: 0
+              house: house,
+              vx: 0, vy: 0
             });
           }
           break;
@@ -587,35 +673,44 @@ function drawDiveScene() {
       }
     }
 
-    // Draw person
+    // Draw
     if (p.type === "adult") {
       const color = p.sex === "M" ? "#3b82f6" : "#ec4899";
 
-      // Yellow marriage glow
       if (p.glowTimer > 0) {
         ctx.beginPath();
-        ctx.arc(p.x, p.y - 12, 17, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(250, 204, 21, ${p.glowTimer / 100 * 0.5})`;
+        ctx.arc(p.x, p.y - 12, 16, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(250, 204, 21, ${p.glowTimer / 90 * 0.5})`;
         ctx.fill();
       }
 
-      // Body
       ctx.fillStyle = color;
       ctx.fillRect(p.x - 5, p.y - 17, 10, 15);
-      // Head
       ctx.beginPath();
       ctx.arc(p.x, p.y - 23, 6.5, 0, Math.PI * 2);
       ctx.fill();
-      // Legs
       ctx.fillRect(p.x - 5, p.y - 2, 3.5, 9);
       ctx.fillRect(p.x + 1.5, p.y - 2, 3.5, 9);
+
+      // Sword & shield when fighting
+      if (p.fighting) {
+        ctx.fillStyle = "#94a3b8";
+        ctx.beginPath();
+        ctx.arc(p.x - 11, p.y - 10, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(p.x + 8, p.y - 8);
+        ctx.lineTo(p.x + 18, p.y - 22);
+        ctx.stroke();
+      }
     } else if (p.type === "child") {
       ctx.fillStyle = p.sex === "M" ? "#60a5fa" : "#f472b6";
       ctx.beginPath();
       ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      // Baby – smaller and lighter
       ctx.fillStyle = p.sex === "M" ? "#93c5fd" : "#f9a8d4";
       ctx.beginPath();
       ctx.arc(p.x, p.y, 3.3, 0, Math.PI * 2);
@@ -631,6 +726,7 @@ function showDivePersonInfo(p) {
   const kids = p.children > 0 ? `${p.children} child${p.children > 1 ? "ren" : ""}` : "No children";
   const typeLabel = p.type === "adult" ? "Adult" : p.type === "child" ? "Child" : "Baby";
   const color = p.sex === "M" ? "#3b82f6" : "#ec4899";
+  const houseText = p.house ? "Has a house" : "No house";
 
   diveInfoBar.innerHTML = `
     <div>
@@ -640,6 +736,7 @@ function showDivePersonInfo(p) {
       &nbsp;•&nbsp; Role: <strong>${p.role}</strong>
       &nbsp;•&nbsp; ${status}
       &nbsp;•&nbsp; ${kids}
+      &nbsp;•&nbsp; ${houseText}
     </div>
     <button onclick="document.getElementById('diveInfoBar').style.display='none'"
             style="background:#334155;border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;">
@@ -658,7 +755,7 @@ function startDiveLoop() {
   loop();
 }
 
-// Click people in dive mode → show bottom info bar
+// Click → bottom info bar
 document.addEventListener("click", (e) => {
   if (!cityDiveActive || !diveCanvas) return;
   if (e.target.id === "exitDiveBtn" || e.target.closest("#diveTitle") || e.target.closest("#diveInfoBar")) return;

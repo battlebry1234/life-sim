@@ -1,5 +1,5 @@
 // map.js
-// ===================== FULL FILE – Builders + Persistent Add Bar =====================
+// ===================== FULL FILE – Survival Foundation + City Dive =====================
 
 let map, cityLayer, peopleLayer, hospitalLayer, historicalLayer;
 let cityDiveActive = false;
@@ -9,6 +9,124 @@ let diveResources = [];
 let diveAnimationId = null, diveInfoBar = null;
 let diveWarTimer = 0;
 let diveFrame = 0;
+
+// ===================== SURVIVAL / WEATHER =====================
+let weather = {
+  season: "summer",       // spring | summer | autumn | winter
+  seasonTimer: 0,
+  seasonLength: 2400,     // frames per season
+  rain: 0,
+  heat: 0.4,
+  cold: 0
+};
+
+const SEASON_ORDER = ["spring", "summer", "autumn", "winter"];
+
+function updateWeather() {
+  weather.seasonTimer++;
+  if (weather.seasonTimer >= weather.seasonLength) {
+    weather.seasonTimer = 0;
+    const idx = SEASON_ORDER.indexOf(weather.season);
+    weather.season = SEASON_ORDER[(idx + 1) % 4];
+    if (typeof logEvent === "function") {
+      logEvent("weather", weather.season.charAt(0).toUpperCase() + weather.season.slice(1) + " has arrived.");
+    }
+  }
+
+  // gentle rain cycle
+  if (Math.random() < 0.0015) weather.rain = 0.3 + Math.random() * 0.5;
+  weather.rain *= 0.992;
+  if (weather.rain < 0.04) weather.rain = 0;
+
+  if (weather.season === "summer") { weather.heat = 0.65 + Math.random() * 0.25; weather.cold = 0; }
+  else if (weather.season === "winter") { weather.cold = 0.6 + Math.random() * 0.3; weather.heat = 0; }
+  else { weather.heat = 0.3; weather.cold = 0.25; }
+}
+
+function applySurvival() {
+  divePeople.forEach(p => {
+    if (p.type === "baby" || p.state === "dead") return;
+
+    // init needs if missing
+    if (p.hunger === undefined) p.hunger = 70 + Math.random() * 25;
+    if (p.thirst === undefined) p.thirst = 70 + Math.random() * 25;
+    if (p.health === undefined) p.health = 85 + Math.random() * 15;
+
+    let hungerDrain = 0.035;
+    let thirstDrain = 0.04;
+
+    // season modifiers
+    if (weather.season === "winter") hungerDrain *= 1.35;
+    if (weather.season === "summer") thirstDrain *= 1.4;
+
+    // shelter bonus
+    const inHouse = p.house && Math.hypot(p.x - (p.house.x + p.house.w / 2), p.y - (p.house.y + p.house.h / 2)) < 55;
+    if (inHouse) {
+      hungerDrain *= 0.65;
+      thirstDrain *= 0.65;
+    }
+
+    // rain helps thirst a little
+    if (weather.rain > 0.25) thirstDrain *= 0.7;
+
+    p.hunger -= hungerDrain;
+    p.thirst -= thirstDrain;
+
+    // exposure
+    if (!inHouse) {
+      if (weather.cold > 0.55) p.health -= 0.025;
+      if (weather.heat > 0.75) p.health -= 0.02;
+    }
+
+    // death
+    if (p.hunger <= 0 || p.thirst <= 0 || p.health <= 0) {
+      p.state = "dead";
+      p.alive = false;
+      if (p.house) p.house.owner = null;
+      if (p.carry) {
+        diveResources.push({ x: p.x, y: p.y, type: p.carry });
+        p.carry = null;
+      }
+    }
+
+    // simple eating when hungry and food is nearby
+    if (p.hunger < 35 && p.state === "idle") {
+      const food = diveResources.find(r => r.type === "food");
+      if (food && Math.hypot(p.x - food.x, p.y - food.y) < 100) {
+        p.state = "eating";
+        p.target = food;
+        p.progress = 0;
+        p.maxProgress = 45;
+      }
+    }
+  });
+
+  // remove dead people occasionally
+  if (diveFrame % 120 === 0) {
+    divePeople = divePeople.filter(p => p.state !== "dead");
+  }
+}
+
+// basic steering – slow down near buildings
+function steerAround(p, goalX, goalY) {
+  let vx = (goalX - p.x) * 0.018;
+  let vy = (goalY - p.y) * 0.018;
+
+  diveBuildings.forEach(b => {
+    const cx = b.x + b.w / 2;
+    const cy = b.y + b.h / 2;
+    const dist = Math.hypot(p.x - cx, p.y - cy);
+    if (dist < 50 && dist > 5) {
+      vx += (p.x - cx) / dist * 0.4;
+      vy += (p.y - cy) / dist * 0.4;
+    }
+  });
+
+  p.vx = vx;
+  p.vy = vy;
+}
+
+// ===================== HISTORICAL DATA =====================
 
 const HISTORICAL_SITES = [
   { name: "Rome", lat: 41.9028, lng: 12.4964, year: -50, description: "Heart of the Roman Empire." },
@@ -69,6 +187,8 @@ const CITY_DIVE_DATA = {
     landmarks: "andes"
   }
 };
+
+// ===================== MAP INIT =====================
 
 function initMap() {
   map = L.map("map", { center: [20, 0], zoom: 2, minZoom: 2, maxZoom: 18, zoomControl: true });
@@ -159,7 +279,7 @@ function enterCityDive(siteName) {
 
   cityDiveActive = true;
   diveCity = siteName;
-  diveWarTimer = 500 + Math.random() * 600;
+  diveWarTimer = 600 + Math.random() * 700;
   diveFrame = 0;
 
   state.year = data.year;
@@ -168,17 +288,15 @@ function enterCityDive(siteName) {
   document.getElementById("timeline").value = state.year;
   document.getElementById("timelineLabel").textContent = state.year < 0 ? Math.abs(state.year) + " BCE" : state.year + " CE";
 
-  // Hide most UI but keep the Add bar visible
   document.querySelector(".timeline-bar").style.display = "none";
   document.querySelector(".god-panel").style.display = "none";
   document.getElementById("sidebar").style.display = "none";
 
-  // Make sure the main add-bar stays visible and is positioned correctly
   const addBar = document.getElementById("addBar");
   if (addBar) {
     addBar.style.display = "flex";
-    addBar.style.bottom = "20px";
-    addBar.style.zIndex = "3100";
+    addBar.style.bottom = "18px";
+    addBar.style.zIndex = "3200";
   }
 
   if (!diveCanvas) {
@@ -191,18 +309,18 @@ function enterCityDive(siteName) {
     const exitBtn = document.createElement("button");
     exitBtn.id = "exitDiveBtn";
     exitBtn.textContent = "← Exit City View";
-    exitBtn.style.cssText = `position:fixed;top:16px;left:16px;z-index:3100;background:#1e293b;color:white;border:1px solid #334155;padding:10px 18px;border-radius:8px;cursor:pointer;font-size:0.9rem;`;
+    exitBtn.style.cssText = `position:fixed;top:16px;left:16px;z-index:3200;background:#1e293b;color:white;border:1px solid #334155;padding:10px 18px;border-radius:8px;cursor:pointer;font-size:0.9rem;`;
     exitBtn.onclick = exitCityDive;
     document.body.appendChild(exitBtn);
 
     const title = document.createElement("div");
     title.id = "diveTitle";
-    title.style.cssText = `position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:3100;background:rgba(15,23,42,0.92);color:#fbbf24;padding:10px 24px;border-radius:10px;font-weight:600;font-size:1.1rem;border:1px solid #334155;text-align:center;max-width:90%;`;
+    title.style.cssText = `position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:3200;background:rgba(15,23,42,0.92);color:#fbbf24;padding:10px 24px;border-radius:10px;font-weight:600;font-size:1.1rem;border:1px solid #334155;text-align:center;max-width:90%;`;
     document.body.appendChild(title);
 
     diveInfoBar = document.createElement("div");
     diveInfoBar.id = "diveInfoBar";
-    diveInfoBar.style.cssText = `position:fixed;bottom:70px;left:0;right:0;z-index:3100;background:rgba(15,23,42,0.96);border-top:1px solid #334155;padding:12px 20px;color:white;font-size:0.9rem;display:none;align-items:center;justify-content:space-between;gap:12px;`;
+    diveInfoBar.style.cssText = `position:fixed;bottom:70px;left:0;right:0;z-index:3200;background:rgba(15,23,42,0.96);border-top:1px solid #334155;padding:12px 20px;color:white;font-size:0.9rem;display:none;align-items:center;justify-content:space-between;gap:12px;`;
     document.body.appendChild(diveInfoBar);
   }
 
@@ -229,7 +347,6 @@ function exitCityDive() {
   document.querySelector(".god-panel").style.display = "block";
   document.getElementById("sidebar").style.display = "flex";
 
-  // Reset add-bar position
   const addBar = document.getElementById("addBar");
   if (addBar) {
     addBar.style.bottom = "52px";
@@ -284,7 +401,7 @@ function generateDiveScene(data) {
   }
 
   // Trees
-  const treeCount = data.landmarks === "egypt" ? 8 : 24;
+  const treeCount = data.landmarks === "egypt" ? 8 : 22;
   for (let i = 0; i < treeCount; i++) {
     diveTrees.push({
       x: 40 + Math.random() * (w - 80),
@@ -294,15 +411,14 @@ function generateDiveScene(data) {
     });
   }
 
-  // Adults – force more Builders
-  for (let i = 0; i < 44; i++) {
+  // Adults – more builders
+  for (let i = 0; i < 42; i++) {
     const sex = Math.random() < 0.55 ? "M" : "F";
     let role;
-    if (sex === "M" && Math.random() < 0.32) {
-      role = "Builder";                    // higher chance of builders
-    } else {
-      const roleList = sex === "M" ? data.maleRoles : data.femaleRoles;
-      role = roleList[Math.floor(Math.random() * roleList.length)];
+    if (sex === "M" && Math.random() < 0.35) role = "Builder";
+    else {
+      const list = sex === "M" ? data.maleRoles : data.femaleRoles;
+      role = list[Math.floor(Math.random() * list.length)];
     }
 
     const p = {
@@ -313,6 +429,9 @@ function generateDiveScene(data) {
       age: 18 + Math.floor(Math.random() * 35),
       spouse: null, children: 0, married: false,
       glowTimer: 0, house: null,
+      hunger: 65 + Math.random() * 30,
+      thirst: 65 + Math.random() * 30,
+      health: 80 + Math.random() * 20,
       state: "idle",
       target: null,
       carry: null,
@@ -320,7 +439,7 @@ function generateDiveScene(data) {
       progress: 0,
       maxProgress: 0,
       vx: 0, vy: 0,
-      idleTimer: 40 + Math.random() * 90
+      idleTimer: 30 + Math.random() * 80
     };
 
     const free = diveBuildings.find(b => b.type === "house" && !b.owner);
@@ -330,30 +449,32 @@ function generateDiveScene(data) {
     }
 
     if (["Legionary","Soldier","Guard"].includes(role)) {
-      p.x = w * 0.68 + (Math.random()-0.5)*100;
-      p.y = h * 0.62 + (Math.random()-0.5)*70;
+      p.x = w * 0.68 + (Math.random()-0.5)*90;
+      p.y = h * 0.62 + (Math.random()-0.5)*60;
     }
 
     divePeople.push(p);
   }
 
   // Children + babies
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 11; i++) {
     const sex = Math.random() < 0.5 ? "M" : "F";
     divePeople.push({
       x: 80 + Math.random()*(w-160), y: 160 + Math.random()*(h-300),
       sex, type: "child", role: "Child", name: "Young " + (sex==="M"?"Boy":"Girl"),
       age: 3+Math.floor(Math.random()*9), spouse:null, children:0, married:false,
-      glowTimer:0, house:null, state:"idle", carry:null, toolAngle:0, progress:0,
-      vx:0, vy:0, idleTimer: 40+Math.random()*100
+      glowTimer:0, house:null, hunger:80, thirst:80, health:90,
+      state:"idle", carry:null, toolAngle:0, progress:0,
+      vx:0, vy:0, idleTimer: 30+Math.random()*90
     });
   }
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 7; i++) {
     const sex = Math.random() < 0.5 ? "M" : "F";
     divePeople.push({
       x: 80 + Math.random()*(w-160), y: 160 + Math.random()*(h-300),
       sex, type: "baby", role: "Baby", name: sex==="M"?"Baby Boy":"Baby Girl",
       age:0, spouse:null, children:0, married:false, glowTimer:0, house:null,
+      hunger:90, thirst:90, health:95,
       state:"idle", carry:null, toolAngle:0, progress:0, vx:0, vy:0, idleTimer:999
     });
   }
@@ -376,7 +497,7 @@ function drawDiveScene() {
   ctx.beginPath();
   ctx.moveTo(0, h*0.55); ctx.lineTo(w, h*0.55); ctx.stroke();
 
-  // Buildings & landmarks
+  // Buildings
   diveBuildings.forEach(b => {
     if (b.type === "pyramid") {
       ctx.fillStyle = "#d4b483";
@@ -408,18 +529,21 @@ function drawDiveScene() {
     }
   });
 
-  // Resources on ground
+  // Resources
   diveResources.forEach(r => {
     if (r.type === "wood") {
       ctx.fillStyle = "#92400e";
       ctx.fillRect(r.x-6, r.y-3, 12, 6);
-    } else {
+    } else if (r.type === "stone") {
       ctx.fillStyle = "#78716c";
       ctx.fillRect(r.x-5, r.y-5, 10, 10);
+    } else if (r.type === "food") {
+      ctx.fillStyle = "#86efac";
+      ctx.beginPath(); ctx.arc(r.x, r.y, 5, 0, Math.PI*2); ctx.fill();
     }
   });
 
-  // Construction sites + timer
+  // Construction + timer
   diveConstruction.forEach(c => {
     ctx.strokeStyle = "#fbbf24";
     ctx.lineWidth = 2;
@@ -449,66 +573,95 @@ function drawDiveScene() {
     ctx.fill();
   });
 
-  // War trigger
+  // Weather overlay
+  if (weather.rain > 0.15) {
+    ctx.strokeStyle = `rgba(147,197,253,${weather.rain*0.45})`;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < weather.rain * 60; i++) {
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x-1.5, y+8); ctx.stroke();
+    }
+  }
+  if (weather.cold > 0.5) {
+    ctx.fillStyle = `rgba(147,197,253,${(weather.cold-0.5)*0.18})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+  if (weather.heat > 0.7) {
+    ctx.fillStyle = `rgba(251,191,36,${(weather.heat-0.7)*0.12})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  // Season label
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.font = "13px sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(weather.season.charAt(0).toUpperCase() + weather.season.slice(1), w - 18, 38);
+
+  // War
   diveWarTimer--;
   if (diveWarTimer <= 0) {
-    diveWarTimer = 700 + Math.random()*900;
-    const fighters = divePeople.filter(p => p.type==="adult" && ["Legionary","Soldier","Guard"].includes(p.role));
+    diveWarTimer = 700 + Math.random() * 900;
+    const fighters = divePeople.filter(p => p.type === "adult" && ["Legionary","Soldier","Guard"].includes(p.role) && p.state === "idle");
     if (fighters.length >= 2) {
       const a = fighters[Math.floor(Math.random()*fighters.length)];
       let b = fighters[Math.floor(Math.random()*fighters.length)];
       if (a !== b) {
         a.state = "fighting"; b.state = "fighting";
         a.target = b; b.target = a;
-        a.progress = 0; a.maxProgress = 160;
-        b.progress = 0; b.maxProgress = 160;
+        a.progress = 0; a.maxProgress = 150;
+        b.progress = 0; b.maxProgress = 150;
       }
     }
   }
 
-  // ===== PEOPLE =====
+  // Survival + weather tick
+  if (diveFrame % 3 === 0) {
+    updateWeather();
+    applySurvival();
+  }
+
+  // People logic + draw
   for (let i = 0; i < divePeople.length; i++) {
     const p = divePeople[i];
+    if (p.state === "dead") continue;
 
     if (p.type === "adult") {
-      // Idle → decide action
+      // Idle decisions
       if (p.state === "idle") {
         p.idleTimer--;
         if (p.idleTimer <= 0) {
-          if (p.role === "Woodcutter" || (p.role === "Builder" && Math.random() < 0.5)) {
-            const tree = diveTrees.find(t => t.health > 35);
+          if (p.role === "Woodcutter" || (p.role === "Builder" && Math.random() < 0.45)) {
+            const tree = diveTrees.find(t => t.health > 30);
             if (tree) {
               p.state = "chopping";
               p.target = tree;
               p.progress = 0;
-              p.maxProgress = 100 + Math.random()*50;
-            } else {
-              p.idleTimer = 60;
-            }
+              p.maxProgress = 110 + Math.random() * 50;
+            } else p.idleTimer = 50;
           } else if (p.role === "Stonehauler") {
             p.state = "mining";
             p.target = { x: 120 + Math.random()*(w-240), y: 180 + Math.random()*(h-360) };
             p.progress = 0;
-            p.maxProgress = 110 + Math.random()*50;
+            p.maxProgress = 120 + Math.random() * 50;
           } else if (p.role === "Farmer") {
             p.state = "farming";
             p.target = { x: 100 + Math.random()*(w-200), y: 170 + Math.random()*(h-340) };
             p.progress = 0;
-            p.maxProgress = 90 + Math.random()*40;
+            p.maxProgress = 95 + Math.random() * 40;
           } else if (p.role === "Builder") {
-            // Builders try to start a project when resources exist
             tryStartBuilding(p, data);
-            if (p.state === "idle") p.idleTimer = 50 + Math.random()*40;
+            if (p.state === "idle") p.idleTimer = 40 + Math.random() * 40;
           } else {
-            p.vx = (Math.random()-0.5)*0.15;
-            p.vy = (Math.random()-0.5)*0.15;
-            p.idleTimer = 80 + Math.random()*100;
+            p.vx = (Math.random()-0.5) * 0.12;
+            p.vy = (Math.random()-0.5) * 0.12;
+            p.idleTimer = 70 + Math.random() * 90;
           }
         }
       }
 
-      // Move toward target / perform action
-      if (p.target && ["chopping","mining","farming","building","fighting"].includes(p.state)) {
+      // Move / act
+      if (p.target && ["chopping","mining","farming","building","fighting","eating"].includes(p.state)) {
         let goalX = p.x, goalY = p.y;
         if (p.state === "chopping" && p.target.health !== undefined) {
           goalX = p.target.x; goalY = p.target.y;
@@ -520,22 +673,19 @@ function drawDiveScene() {
         }
 
         const dist = Math.hypot(p.x - goalX, p.y - goalY);
-        if (dist > 20) {
-          p.vx = (goalX - p.x) * 0.018;
-          p.vy = (goalY - p.y) * 0.018;
+        if (dist > 22) {
+          steerAround(p, goalX, goalY);
         } else {
           p.vx = 0; p.vy = 0;
 
           if (p.state === "chopping") {
-            p.toolAngle = Math.sin(diveFrame * 0.23) * 0.9;
+            p.toolAngle = Math.sin(diveFrame * 0.22) * 0.9;
             p.progress++;
             if (p.progress >= p.maxProgress) {
               p.target.health = 0;
               diveResources.push({ x: p.target.x, y: p.target.y, type: "wood" });
               diveResources.push({ x: p.target.x+8, y: p.target.y+3, type: "wood" });
-              p.state = "idle";
-              p.target = null;
-              p.idleTimer = 30;
+              p.state = "idle"; p.target = null; p.idleTimer = 25;
             }
           } else if (p.state === "mining") {
             p.toolAngle = Math.sin(diveFrame * 0.2) * 0.85;
@@ -543,12 +693,10 @@ function drawDiveScene() {
             if (p.progress >= p.maxProgress) {
               diveResources.push({ x: p.x, y: p.y, type: "stone" });
               diveResources.push({ x: p.x+7, y: p.y+4, type: "stone" });
-              p.state = "idle";
-              p.target = null;
-              p.idleTimer = 40;
+              p.state = "idle"; p.target = null; p.idleTimer = 35;
             }
           } else if (p.state === "farming") {
-            p.toolAngle = Math.sin(diveFrame * 0.18) * 0.7;
+            p.toolAngle = Math.sin(diveFrame * 0.17) * 0.7;
             p.progress++;
             if (p.progress >= p.maxProgress) {
               diveTrees.push({
@@ -557,9 +705,11 @@ function drawDiveScene() {
                 size: 7 + Math.random()*5,
                 health: 100
               });
-              p.state = "idle";
-              p.target = null;
-              p.idleTimer = 50;
+              // sometimes drop food
+              if (Math.random() < 0.4) {
+                diveResources.push({ x: p.x, y: p.y, type: "food" });
+              }
+              p.state = "idle"; p.target = null; p.idleTimer = 45;
             }
           } else if (p.state === "building") {
             p.progress++;
@@ -571,16 +721,20 @@ function drawDiveScene() {
                 type: p.target.buildType, owner: null
               });
               diveConstruction = diveConstruction.filter(c => c !== p.target);
-              p.state = "idle";
-              p.target = null;
-              p.idleTimer = 70;
+              p.state = "idle"; p.target = null; p.idleTimer = 60;
             }
           } else if (p.state === "fighting") {
             p.progress++;
             if (p.progress >= p.maxProgress) {
-              p.state = "idle";
-              p.target = null;
-              p.idleTimer = 90;
+              p.state = "idle"; p.target = null; p.idleTimer = 80;
+            }
+          } else if (p.state === "eating") {
+            p.progress++;
+            if (p.progress >= p.maxProgress) {
+              p.hunger = Math.min(100, p.hunger + 45);
+              // remove the food
+              diveResources = diveResources.filter(r => r !== p.target);
+              p.state = "idle"; p.target = null; p.idleTimer = 30;
             }
           }
         }
@@ -590,9 +744,8 @@ function drawDiveScene() {
       if ((p.role === "Homemaker" || p.role === "Childcare") && p.house && p.state === "idle") {
         const hx = p.house.x + p.house.w/2;
         const hy = p.house.y + p.house.h/2;
-        if (Math.hypot(p.x-hx, p.y-hy) > 55) {
-          p.vx = (hx - p.x) * 0.012;
-          p.vy = (hy - p.y) * 0.012;
+        if (Math.hypot(p.x - hx, p.y - hy) > 50) {
+          steerAround(p, hx, hy);
         }
       }
     }
@@ -606,26 +759,28 @@ function drawDiveScene() {
     if (p.glowTimer > 0) p.glowTimer--;
 
     // Marriage
-    if (p.type === "adult" && !p.married && p.state === "idle" && Math.random() < 0.0006) {
+    if (p.type === "adult" && !p.married && p.state === "idle" && Math.random() < 0.00055) {
       for (let j = i+1; j < divePeople.length; j++) {
         const o = divePeople[j];
-        if (o.type !== "adult" || o.married || o.sex === p.sex) continue;
-        if (Math.hypot(p.x-o.x, p.y-o.y) < 28 && Math.random() < 0.45) {
+        if (o.type !== "adult" || o.married || o.sex === p.sex || o.state === "dead") continue;
+        if (Math.hypot(p.x-o.x, p.y-o.y) < 28 && Math.random() < 0.4) {
           p.married = true; o.married = true;
           p.spouse = o.name; o.spouse = p.name;
           p.glowTimer = 90; o.glowTimer = 90;
-          let house = p.house || o.house || diveBuildings.find(b => b.type==="house" && !b.owner);
+          let house = p.house || o.house || diveBuildings.find(b => b.type === "house" && !b.owner);
           if (house) {
             house.owner = p; p.house = house; o.house = house;
           }
-          if (Math.random() < 0.55) {
+          if (Math.random() < 0.5) {
             p.children++; o.children++;
-            const bs = Math.random()<0.5 ? "M" : "F";
+            const bs = Math.random() < 0.5 ? "M" : "F";
             divePeople.push({
-              x:(p.x+o.x)/2, y:(p.y+o.y)/2, sex:bs, type:"baby", role:"Baby",
-              name: bs==="M"?"Baby Boy":"Baby Girl", age:0, spouse:null, children:0,
-              married:false, glowTimer:0, house, state:"idle", carry:null,
-              toolAngle:0, progress:0, vx:0, vy:0, idleTimer:999
+              x: (p.x+o.x)/2, y: (p.y+o.y)/2, sex: bs, type: "baby", role: "Baby",
+              name: bs === "M" ? "Baby Boy" : "Baby Girl", age: 0,
+              spouse: null, children: 0, married: false, glowTimer: 0, house,
+              hunger: 90, thirst: 90, health: 95,
+              state: "idle", carry: null, toolAngle: 0, progress: 0,
+              vx: 0, vy: 0, idleTimer: 999
             });
           }
           break;
@@ -633,9 +788,15 @@ function drawDiveScene() {
       }
     }
 
-    // ===== DRAW =====
+    // Draw
     if (p.type === "adult") {
       const color = p.sex === "M" ? "#3b82f6" : "#ec4899";
+
+      // low hunger/thirst indicator
+      if (p.hunger < 25 || p.thirst < 25) {
+        ctx.fillStyle = "rgba(239,68,68,0.35)";
+        ctx.beginPath(); ctx.arc(p.x, p.y - 12, 14, 0, Math.PI*2); ctx.fill();
+      }
 
       if (p.glowTimer > 0) {
         ctx.beginPath();
@@ -679,7 +840,7 @@ function drawDiveScene() {
       }
       ctx.restore();
 
-      // Building timer above builder
+      // Building timer
       if (p.state === "building" && p.target) {
         ctx.strokeStyle = "#fbbf24";
         ctx.lineWidth = 2;
@@ -702,17 +863,15 @@ function drawDiveScene() {
   }
 }
 
-// Builders try to start a project when enough resources exist
 function tryStartBuilding(builder, data) {
   const woods = diveResources.filter(r => r.type === "wood");
   const stones = diveResources.filter(r => r.type === "stone");
 
-  const wantPyramid = data.landmarks === "egypt" && Math.random() < 0.4;
+  const wantPyramid = data.landmarks === "egypt" && Math.random() < 0.35;
   const needWood = wantPyramid ? 0 : 7;
   const needStone = wantPyramid ? 15 : 2;
 
   if (woods.length >= needWood && stones.length >= needStone) {
-    // consume
     for (let i = 0; i < needWood; i++) {
       const idx = diveResources.findIndex(r => r.type === "wood");
       if (idx !== -1) diveResources.splice(idx, 1);
@@ -728,7 +887,7 @@ function tryStartBuilding(builder, data) {
       w: wantPyramid ? 75 + Math.random()*35 : 48 + Math.random()*28,
       h: wantPyramid ? 60 + Math.random()*30 : 40 + Math.random()*22,
       progress: 0,
-      max: wantPyramid ? 360 : 200,          // ~30–40s for pyramid, ~20–30s for house
+      max: wantPyramid ? 380 : 210,   // ~30–40s pyramid, ~20–30s house
       buildType: wantPyramid ? "pyramid" : "house"
     };
     diveConstruction.push(site);
@@ -746,14 +905,15 @@ function showDivePersonInfo(p) {
   const typeLabel = p.type === "adult" ? "Adult" : p.type === "child" ? "Child" : "Baby";
   const color = p.sex === "M" ? "#3b82f6" : "#ec4899";
   const houseText = p.house ? "Has a house" : "No house";
-  const work = p.state !== "idle" ? ` • Currently: ${p.state}` : "";
+  const work = p.state !== "idle" ? ` • ${p.state}` : "";
+  const needs = p.type === "adult" ? ` • Hunger ${Math.round(p.hunger)} • Thirst ${Math.round(p.thirst)}` : "";
 
   diveInfoBar.innerHTML = `
     <div>
       <strong style="color:${color}">${p.name}</strong>
       &nbsp;•&nbsp; ${typeLabel} &nbsp;•&nbsp; Age ${p.age}
       &nbsp;•&nbsp; Role: <strong>${p.role}</strong>
-      &nbsp;•&nbsp; ${status} &nbsp;•&nbsp; ${kids} &nbsp;•&nbsp; ${houseText}${work}
+      &nbsp;•&nbsp; ${status} &nbsp;•&nbsp; ${kids} &nbsp;•&nbsp; ${houseText}${work}${needs}
     </div>
     <button onclick="document.getElementById('diveInfoBar').style.display='none'"
             style="background:#334155;border:none;color:white;padding:5px 12px;border-radius:5px;cursor:pointer;">Close</button>
@@ -776,6 +936,7 @@ document.addEventListener("click", (e) => {
   const rect = diveCanvas.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   for (const p of divePeople) {
+    if (p.state === "dead") continue;
     const dist = Math.hypot(p.x - mx, p.y - my);
     const hit = p.type === "adult" ? 18 : p.type === "child" ? 12 : 9;
     if (dist < hit) { showDivePersonInfo(p); break; }
@@ -791,11 +952,11 @@ window.zoomToHistorical = function(name) {
   setTimeout(() => enterCityDive(name), 700);
 };
 
-// ---------- Creator actions that also work inside City Dive ----------
+// ===================== ADD BAR (works in dive too) =====================
+
 window.addHumans = function() {
   if (cityDiveActive) {
-    // Add people directly into the dive scene
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 7; i++) {
       const sex = Math.random() < 0.5 ? "M" : "F";
       const role = sex === "M" ? (Math.random() < 0.4 ? "Builder" : "Farmer") : "Homemaker";
       divePeople.push({
@@ -803,21 +964,21 @@ window.addHumans = function() {
         y: 160 + Math.random() * (window.innerHeight - 300),
         sex, type: "adult", role,
         name: makeDiveName(sex),
-        age: 18 + Math.floor(Math.random()*30),
+        age: 18 + Math.floor(Math.random()*28),
         spouse: null, children: 0, married: false,
         glowTimer: 0, house: null,
+        hunger: 70 + Math.random()*25, thirst: 70 + Math.random()*25, health: 85,
         state: "idle", target: null, carry: null,
         toolAngle: 0, progress: 0, maxProgress: 0,
-        vx: 0, vy: 0, idleTimer: 20 + Math.random()*40
+        vx: 0, vy: 0, idleTimer: 15 + Math.random()*30
       });
     }
-  } else {
-    // original world add
-    for (let i = 0; i < 12; i++) {
+  } else if (typeof randomLandPosition === "function") {
+    for (let i = 0; i < 10; i++) {
       const pos = randomLandPosition();
       state.humans.push(new Human(pos.lat, pos.lng));
     }
-    logEvent("discovery", playerName + " created new humans.");
+    if (typeof logEvent === "function") logEvent("discovery", playerName + " created new humans.");
     updateUI();
     refreshMapMarkers();
   }
@@ -825,23 +986,23 @@ window.addHumans = function() {
 
 window.addTrees = function() {
   if (cityDiveActive) {
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 5; i++) {
       diveTrees.push({
         x: 50 + Math.random() * (window.innerWidth - 100),
         y: 130 + Math.random() * (window.innerHeight - 250),
-        size: 12 + Math.random()*12,
+        size: 12 + Math.random()*11,
         health: 100
       });
     }
   } else {
-    logEvent("discovery", playerName + " caused new forests to grow.");
+    if (typeof logEvent === "function") logEvent("discovery", playerName + " caused new forests to grow.");
     updateUI();
   }
 };
 
 window.addStone = function() {
   if (cityDiveActive) {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 9; i++) {
       diveResources.push({
         x: 80 + Math.random() * (window.innerWidth - 160),
         y: 150 + Math.random() * (window.innerHeight - 280),
@@ -849,28 +1010,15 @@ window.addStone = function() {
       });
     }
   } else {
-    state.resources.stone += 1500;
-    logEvent("discovery", playerName + " created stone.");
-    updateUI();
-  }
-};
-
-window.addFood = function() {
-  if (cityDiveActive) {
-    // just a visual boost – farmers become more active
-    divePeople.forEach(p => {
-      if (p.role === "Farmer") p.idleTimer = 5;
-    });
-  } else {
-    state.resources.food += 2500;
-    logEvent("discovery", playerName + " bestowed food.");
+    state.resources.stone += 1400;
+    if (typeof logEvent === "function") logEvent("discovery", playerName + " created stone.");
     updateUI();
   }
 };
 
 window.addWood = function() {
   if (cityDiveActive) {
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 7; i++) {
       diveResources.push({
         x: 80 + Math.random() * (window.innerWidth - 160),
         y: 150 + Math.random() * (window.innerHeight - 280),
@@ -878,26 +1026,43 @@ window.addWood = function() {
       });
     }
   } else {
-    state.resources.wood += 1800;
-    logEvent("discovery", playerName + " created wood.");
+    state.resources.wood += 1600;
+    if (typeof logEvent === "function") logEvent("discovery", playerName + " created wood.");
     updateUI();
   }
 };
 
-// ---------- UI ----------
+window.addFood = function() {
+  if (cityDiveActive) {
+    for (let i = 0; i < 6; i++) {
+      diveResources.push({
+        x: 80 + Math.random() * (window.innerWidth - 160),
+        y: 150 + Math.random() * (window.innerHeight - 280),
+        type: "food"
+      });
+    }
+  } else {
+    state.resources.food += 2200;
+    if (typeof logEvent === "function") logEvent("discovery", playerName + " bestowed food.");
+    updateUI();
+  }
+};
+
+// ===================== UI HELPERS =====================
+
 function renderEvents() {
   const el = document.getElementById("eventLog");
   if (!el) return;
   let html = "";
-  state.events.slice(0,30).forEach(e => {
-    const y = e.year < 0 ? Math.abs(e.year)+" BCE" : e.year+" CE";
+  state.events.slice(0, 28).forEach(e => {
+    const y = e.year < 0 ? Math.abs(e.year) + " BCE" : e.year + " CE";
     html += `<div class="event ${e.type}"><span class="year">${y}</span><span class="msg">${e.msg}</span></div>`;
   });
   el.innerHTML = html;
 }
 
 function updateUI() {
-  document.getElementById("yearDisplay").textContent = state.year < 0 ? Math.abs(state.year)+" BCE" : state.year+" CE";
+  document.getElementById("yearDisplay").textContent = state.year < 0 ? Math.abs(state.year) + " BCE" : state.year + " CE";
   document.getElementById("eraDisplay").textContent = state.era;
   document.getElementById("popDisplay").textContent = state.population.toLocaleString();
   document.getElementById("cityDisplay").textContent = state.cities.length;
@@ -905,7 +1070,7 @@ function updateUI() {
 
   document.getElementById("statGrid").innerHTML = `
     <div class="stat-card"><div class="label">Population</div><div class="value">${state.population.toLocaleString()}</div></div>
-    <div class="stat-card"><div class="label">Living Agents</div><div class="value">${state.humans.filter(h=>h.alive).length}</div></div>
+    <div class="stat-card"><div class="label">Living Agents</div><div class="value">${state.humans.filter(h => h.alive).length}</div></div>
     <div class="stat-card"><div class="label">Marriages</div><div class="value">${state.marriages}</div></div>
     <div class="stat-card"><div class="label">Families</div><div class="value">${state.families.length}</div></div>
     <div class="stat-card"><div class="label">Wars</div><div class="value">${state.wars}</div></div>
@@ -922,15 +1087,15 @@ function updateUI() {
 
   let techHtml = "";
   TECH_TREE.forEach(t => {
-    const y = t.year < 0 ? Math.abs(t.year)+" BCE" : t.year+" CE";
-    techHtml += `<div class="tech-item ${state.tech[t.id]?"unlocked":"locked"}"><span>${state.tech[t.id]?"✓":"○"} ${t.name}</span><span>${y}</span></div>`;
+    const y = t.year < 0 ? Math.abs(t.year) + " BCE" : t.year + " CE";
+    techHtml += `<div class="tech-item ${state.tech[t.id] ? "unlocked" : "locked"}"><span>${state.tech[t.id] ? "✓" : "○"} ${t.name}</span><span>${y}</span></div>`;
   });
   document.getElementById("techList").innerHTML = techHtml;
 
-  const alive = state.humans.filter(h => h.alive).sort((a,b)=>b.age-a.age).slice(0,18);
+  const alive = state.humans.filter(h => h.alive).sort((a,b) => b.age - a.age).slice(0, 16);
   let peopleHtml = alive.length === 0 ? '<div style="color:var(--muted)">No living people.</div>' : "";
   alive.forEach(h => {
-    const color = h.sex==="M" ? "#3b82f6" : "#ec4899";
+    const color = h.sex === "M" ? "#3b82f6" : "#ec4899";
     peopleHtml += `<div class="person-card" onclick="focusPerson(${h.id})">
       <div class="name" style="color:${color}">${h.name}</div>
       <div class="meta">age ${h.age}, hunger ${h.hungerLevel}, thirst ${h.thirstLevel}, ${h.livingDescription}</div>
@@ -949,7 +1114,7 @@ function renderFocusPanel() {
   }
   if (state.focusType === "person") {
     const h = state.focus;
-    const color = h.sex==="M" ? "#3b82f6" : "#ec4899";
+    const color = h.sex === "M" ? "#3b82f6" : "#ec4899";
     panel.innerHTML = `
       <div style="font-size:1.15rem;font-weight:600;color:${color};margin-bottom:8px">${h.name}</div>
       <div class="res-item"><span>Age</span><span>${h.age}</span></div>
@@ -957,8 +1122,8 @@ function renderFocusPanel() {
       <div class="res-item"><span>Thirst</span><span>${h.thirstLevel}</span></div>
       <div class="res-item"><span>Job</span><span>${h.job}</span></div>
       <div class="res-item"><span>Living</span><span>${h.livingDescription}</span></div>
-      <div class="res-item"><span>Spouse</span><span>${h.spouse&&h.spouse.alive?h.spouse.name:"None"}</span></div>
-      <div class="res-item"><span>Children</span><span>${h.children.filter(c=>c.alive).length}</span></div>
+      <div class="res-item"><span>Spouse</span><span>${h.spouse && h.spouse.alive ? h.spouse.name : "None"}</span></div>
+      <div class="res-item"><span>Children</span><span>${h.children.filter(c => c.alive).length}</span></div>
       <button onclick="zoomToPerson(${h.id})" style="width:100%;margin-top:8px;background:var(--accent);border:none;color:white;padding:8px;border-radius:6px;cursor:pointer">Zoom to Person</button>`;
   } else if (state.focusType === "city") {
     const c = state.focus;
@@ -966,8 +1131,8 @@ function renderFocusPanel() {
       <div style="font-size:1.15rem;font-weight:600;color:#fbbf24;margin-bottom:6px">${c.name}</div>
       <div class="res-item"><span>Population</span><span>${Math.floor(c.pop).toLocaleString()}</span></div>
       <div class="res-item"><span>Level</span><span>${["","Village","Town","City","Metropolis"][c.level]}</span></div>
-      <div class="res-item"><span>Nation</span><span>${c.nation?c.nation.name:"Independent"}</span></div>
-      <div class="res-item"><span>Hospital</span><span>${c.hasHospital?"Yes 🏥":"No"}</span></div>
+      <div class="res-item"><span>Nation</span><span>${c.nation ? c.nation.name : "Independent"}</span></div>
+      <div class="res-item"><span>Hospital</span><span>${c.hasHospital ? "Yes 🏥" : "No"}</span></div>
       <button onclick="zoomToCity()" style="width:100%;margin-top:8px;background:var(--accent);border:none;color:white;padding:8px;border-radius:6px;cursor:pointer">Zoom to City</button>`;
   }
 }
@@ -990,12 +1155,13 @@ window.zoomToCity = function() {
   map.setView([state.focus.lat, state.focus.lng], 10);
 };
 
+// Controls
 document.getElementById("btnPlay").onclick = () => { state.running = true; document.getElementById("btnPlay").classList.add("active"); };
 document.getElementById("btnPause").onclick = () => { state.running = false; document.getElementById("btnPlay").classList.remove("active"); };
 document.getElementById("btnReset").onclick = () => {
   initWorld(); state.running = true;
   document.getElementById("btnPlay").classList.add("active");
-  if (map) map.setView([20,0], 2);
+  if (map) map.setView([20, 0], 2);
   refreshMapMarkers();
 };
 
@@ -1027,7 +1193,7 @@ document.getElementById("timeline").addEventListener("input", e => {
   state.era = getEra(state.year);
   TECH_TREE.forEach(t => state.tech[t.id] = state.year >= t.year);
   updatePop(); updateUI(); refreshMapMarkers();
-  document.getElementById("timelineLabel").textContent = state.year < 0 ? Math.abs(state.year)+" BCE" : state.year+" CE";
+  document.getElementById("timelineLabel").textContent = state.year < 0 ? Math.abs(state.year) + " BCE" : state.year + " CE";
 });
 
 const nameInput = document.getElementById("nameInput");
@@ -1052,8 +1218,8 @@ startBtn.addEventListener("click", () => {
 
 let last = performance.now(), acc = 0;
 function loop(now) {
-  const dt = Math.min(0.05, (now - last)/1000);
-  last = now; acc += dt*1000;
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now; acc += dt * 1000;
   if (acc > 160) {
     acc = 0;
     if (!cityDiveActive) tick();

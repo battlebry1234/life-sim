@@ -1,5 +1,5 @@
 // map.js
-// ===================== FULL FILE – Weather + House Protection =====================
+// ===================== FULL FILE – More People, Builders, Growing Kids, Weather, Hospitals =====================
 
 let map, cityLayer, peopleLayer, hospitalLayer, historicalLayer;
 let cityDiveActive = false;
@@ -10,12 +10,13 @@ let diveAnimationId = null, diveInfoBar = null;
 let diveWarTimer = 0;
 let diveFrame = 0;
 
-// ===================== WEATHER & SURVIVAL =====================
+// ===================== WEATHER =====================
 let weather = {
   season: "summer",
   seasonTimer: 0,
-  seasonLength: 2200,
+  seasonLength: 1900,
   rain: 0,
+  snow: 0,
   heat: 0.4,
   cold: 0
 };
@@ -33,20 +34,29 @@ function updateWeather() {
     }
   }
 
-  // Rain comes and goes
-  if (Math.random() < 0.0018) weather.rain = 0.35 + Math.random() * 0.55;
-  weather.rain *= 0.991;
+  if (Math.random() < 0.0022) {
+    if (weather.season === "winter") {
+      weather.snow = 0.45 + Math.random() * 0.5;
+      weather.rain = 0;
+    } else {
+      weather.rain = 0.35 + Math.random() * 0.5;
+      weather.snow = 0;
+    }
+  }
+  weather.rain *= 0.989;
+  weather.snow *= 0.987;
   if (weather.rain < 0.04) weather.rain = 0;
+  if (weather.snow < 0.04) weather.snow = 0;
 
   if (weather.season === "summer") {
-    weather.heat = 0.7 + Math.random() * 0.25;
+    weather.heat = 0.72 + Math.random() * 0.25;
     weather.cold = 0;
   } else if (weather.season === "winter") {
-    weather.cold = 0.65 + Math.random() * 0.3;
+    weather.cold = 0.72 + Math.random() * 0.25;
     weather.heat = 0;
   } else {
     weather.heat = 0.3;
-    weather.cold = 0.25;
+    weather.cold = 0.3;
   }
 }
 
@@ -54,43 +64,68 @@ function isSheltered(p) {
   if (!p.house) return false;
   const hx = p.house.x + p.house.w / 2;
   const hy = p.house.y + p.house.h / 2;
-  return Math.hypot(p.x - hx, p.y - hy) < 48;
+  return Math.hypot(p.x - hx, p.y - hy) < 42;
 }
 
 function applySurvival() {
   divePeople.forEach(p => {
-    if (p.type === "baby" || p.state === "dead") return;
+    if (p.state === "dead" || p.state === "beingCarried") return;
 
-    if (p.hunger === undefined) p.hunger = 65 + Math.random() * 30;
-    if (p.thirst === undefined) p.thirst = 65 + Math.random() * 30;
-    if (p.health === undefined) p.health = 80 + Math.random() * 18;
-
-    let hungerDrain = 0.038;
-    let thirstDrain = 0.042;
-
-    // Season pressure
-    if (weather.season === "winter") hungerDrain *= 1.45;
-    if (weather.season === "summer") thirstDrain *= 1.5;
-
-    // HOUSE PROTECTION – big difference when inside
-    const sheltered = isSheltered(p);
-    if (sheltered) {
-      hungerDrain *= 0.45;   // much slower drain inside
-      thirstDrain *= 0.45;
-      // mild health recovery when sheltered
-      if (p.health < 95) p.health += 0.015;
-    } else {
-      // exposure damage outside in extreme weather
-      if (weather.cold > 0.6) p.health -= 0.04;
-      if (weather.heat > 0.75) p.health -= 0.03;
-      if (weather.rain > 0.5) p.health -= 0.015;
+    // Kids grow up
+    if (p.type === "child") {
+      p.age += 0.0012;
+      if (p.age >= 16) {
+        p.type = "adult";
+        p.role = p.sex === "M" ? (Math.random() < 0.4 ? "Builder" : "Farmer") : "Homemaker";
+        p.name = makeDiveName(p.sex);
+      }
+      return;
+    }
+    if (p.type === "baby") {
+      p.age += 0.0018;
+      if (p.age >= 3) {
+        p.type = "child";
+        p.role = "Child";
+        p.name = "Young " + (p.sex === "M" ? "Boy" : "Girl");
+      }
+      return;
     }
 
-    // Rain slightly helps thirst when outside
-    if (!sheltered && weather.rain > 0.3) thirstDrain *= 0.65;
+    if (p.hunger === undefined) p.hunger = 55 + Math.random() * 40;
+    if (p.thirst === undefined) p.thirst = 55 + Math.random() * 40;
+    if (p.health === undefined) p.health = 70 + Math.random() * 25;
+    if (p.disease === undefined) p.disease = 0;
+
+    let hungerDrain = 0.042;
+    let thirstDrain = 0.048;
+
+    if (weather.season === "winter") hungerDrain *= 1.55;
+    if (weather.season === "summer") thirstDrain *= 1.6;
+
+    const sheltered = isSheltered(p);
+
+    if (sheltered) {
+      hungerDrain *= 0.38;
+      thirstDrain *= 0.38;
+      if (p.health < 97) p.health += 0.025;
+      if (p.disease > 0) p.disease -= 0.1;
+    } else {
+      if (weather.cold > 0.6 || weather.snow > 0.35) p.health -= 0.055;
+      if (weather.heat > 0.78) p.health -= 0.04;
+      if (weather.rain > 0.5) p.health -= 0.022;
+    }
 
     p.hunger -= hungerDrain;
     p.thirst -= thirstDrain;
+
+    // Disease chance
+    if (Math.random() < 0.0004 * (1 + weather.rain + weather.cold)) {
+      p.disease = Math.min(100, p.disease + 12 + Math.random() * 18);
+    }
+    if (p.disease > 0) {
+      p.health -= 0.03;
+      p.disease -= 0.015;
+    }
 
     // Death
     if (p.hunger <= 0 || p.thirst <= 0 || p.health <= 0) {
@@ -103,55 +138,73 @@ function applySurvival() {
       }
     }
 
-    // Seek shelter in bad weather
+    // Seek shelter hard when cold / snowing
     if (!sheltered && p.state === "idle" && p.house &&
-        (weather.cold > 0.55 || weather.heat > 0.7 || weather.rain > 0.45)) {
+        (weather.cold > 0.55 || weather.snow > 0.3 || weather.rain > 0.55)) {
       p.state = "seekingShelter";
       p.target = p.house;
-      p.progress = 0;
-      p.maxProgress = 200;
     }
 
-    // Eat when hungry
-    if (p.hunger < 32 && p.state === "idle") {
+    // Call for help when very sick
+    if ((p.health < 35 || p.disease > 40 || p.hunger < 12) && !p.calledHelp && p.state === "idle") {
+      p.calledHelp = true;
+      p.helpPulse = 180;
+    }
+
+    // Eat
+    if (p.hunger < 30 && p.state === "idle") {
       const food = diveResources.find(r => r.type === "food");
-      if (food && Math.hypot(p.x - food.x, p.y - food.y) < 110) {
+      if (food && Math.hypot(p.x - food.x, p.y - food.y) < 100) {
         p.state = "eating";
         p.target = food;
         p.progress = 0;
-        p.maxProgress = 40;
+        p.maxProgress = 38;
       }
     }
   });
 
-  if (diveFrame % 90 === 0) {
+  // Healers respond to calls
+  const sick = divePeople.filter(p => p.calledHelp && p.state !== "dead" && p.state !== "beingCarried");
+  const healers = divePeople.filter(p => p.role === "Healer" && p.state === "idle");
+
+  sick.forEach(s => {
+    if (healers.length === 0) return;
+    const healer = healers.shift();
+    healer.state = "responding";
+    healer.target = s;
+    healer.progress = 0;
+    healer.maxProgress = 400;
+    s.calledHelp = false;
+  });
+
+  if (diveFrame % 100 === 0) {
     divePeople = divePeople.filter(p => p.state !== "dead");
   }
 }
 
 function steerAround(p, goalX, goalY) {
-  let vx = (goalX - p.x) * 0.017;
-  let vy = (goalY - p.y) * 0.017;
+  let vx = (goalX - p.x) * 0.016;
+  let vy = (goalY - p.y) * 0.016;
 
   diveBuildings.forEach(b => {
     const cx = b.x + b.w / 2;
     const cy = b.y + b.h / 2;
     const dist = Math.hypot(p.x - cx, p.y - cy);
-    if (dist < 48 && dist > 6) {
-      vx += (p.x - cx) / dist * 0.35;
-      vy += (p.y - cy) / dist * 0.35;
+    if (dist < 45 && dist > 5) {
+      vx += (p.x - cx) / dist * 0.32;
+      vy += (p.y - cy) / dist * 0.32;
     }
   });
 
-  // slow down in rain / winter
   let speedMod = 1;
-  if (weather.rain > 0.4) speedMod *= 0.75;
-  if (weather.season === "winter") speedMod *= 0.7;
+  if (weather.rain > 0.4) speedMod *= 0.72;
+  if (weather.snow > 0.3) speedMod *= 0.6;
+  if (weather.season === "winter") speedMod *= 0.75;
   p.vx = vx * speedMod;
   p.vy = vy * speedMod;
 }
 
-// ===================== HISTORICAL DATA =====================
+// ===================== DATA =====================
 
 const HISTORICAL_SITES = [
   { name: "Rome", lat: 41.9028, lng: 12.4964, year: -50, description: "Heart of the Roman Empire." },
@@ -167,48 +220,48 @@ const CITY_DIVE_DATA = {
     year: -50, title: "Rome – Heart of the Empire",
     description: "The Forum is alive with citizens, soldiers and merchants.",
     ground: "#3d4a3a",
-    maleRoles: ["Legionary", "Builder", "Builder", "Farmer", "Woodcutter", "Guard", "Merchant"],
-    femaleRoles: ["Homemaker", "Childcare", "Merchant", "Priestess", "Weaver"],
+    maleRoles: ["Legionary", "Builder", "Builder", "Builder", "Farmer", "Woodcutter", "Guard", "Healer", "Merchant"],
+    femaleRoles: ["Homemaker", "Childcare", "Merchant", "Priestess", "Weaver", "Healer"],
     landmarks: "roman"
   },
   "Memphis (Egypt)": {
     year: -2500, title: "Memphis – Age of the Pyramids",
     description: "Sandy desert. Workers haul stone for the great pyramids.",
     ground: "#c2a36b",
-    maleRoles: ["Builder", "Builder", "Stonehauler", "Stonehauler", "Soldier", "Farmer", "Overseer"],
-    femaleRoles: ["Homemaker", "Childcare", "Priestess", "Weaver"],
+    maleRoles: ["Builder", "Builder", "Builder", "Stonehauler", "Stonehauler", "Soldier", "Farmer", "Healer", "Overseer"],
+    femaleRoles: ["Homemaker", "Childcare", "Priestess", "Weaver", "Healer"],
     landmarks: "egypt"
   },
   "Athens": {
     year: -450, title: "Athens – Golden Age",
     description: "The agora bustles beneath the Acropolis.",
     ground: "#3a4a3d",
-    maleRoles: ["Citizen", "Soldier", "Builder", "Builder", "Woodcutter", "Farmer", "Merchant"],
-    femaleRoles: ["Homemaker", "Childcare", "Weaver", "Merchant"],
+    maleRoles: ["Citizen", "Soldier", "Builder", "Builder", "Builder", "Woodcutter", "Farmer", "Healer", "Merchant"],
+    femaleRoles: ["Homemaker", "Childcare", "Weaver", "Merchant", "Healer"],
     landmarks: "greece"
   },
   "Uruk": {
     year: -3500, title: "Uruk – First Great City",
     description: "Mud-brick temples rise in the earliest urban center.",
     ground: "#8b7355",
-    maleRoles: ["Guard", "Farmer", "Builder", "Builder", "Woodcutter", "Trader"],
-    femaleRoles: ["Homemaker", "Childcare", "Priestess", "Weaver"],
+    maleRoles: ["Guard", "Farmer", "Builder", "Builder", "Builder", "Woodcutter", "Trader", "Healer"],
+    femaleRoles: ["Homemaker", "Childcare", "Priestess", "Weaver", "Healer"],
     landmarks: "mesopotamia"
   },
   "Anyang": {
     year: -1200, title: "Anyang – Shang Capital",
     description: "Bronze workers and diviners serve the royal court.",
     ground: "#3d4a3a",
-    maleRoles: ["Soldier", "Builder", "Builder", "Farmer", "Woodcutter", "Noble"],
-    femaleRoles: ["Homemaker", "Childcare", "Weaver", "Noble"],
+    maleRoles: ["Soldier", "Builder", "Builder", "Builder", "Farmer", "Woodcutter", "Healer", "Noble"],
+    femaleRoles: ["Homemaker", "Childcare", "Weaver", "Healer", "Noble"],
     landmarks: "china"
   },
   "Caral": {
     year: -2200, title: "Caral – Ancient Andes",
     description: "Pyramid builders of the Norte Chico civilization.",
     ground: "#6b5c45",
-    maleRoles: ["Builder", "Builder", "Farmer", "Stonehauler", "Guard"],
-    femaleRoles: ["Homemaker", "Childcare", "Farmer", "Weaver"],
+    maleRoles: ["Builder", "Builder", "Builder", "Farmer", "Stonehauler", "Guard", "Healer"],
+    femaleRoles: ["Homemaker", "Childcare", "Farmer", "Weaver", "Healer"],
     landmarks: "andes"
   }
 };
@@ -304,7 +357,7 @@ function enterCityDive(siteName) {
 
   cityDiveActive = true;
   diveCity = siteName;
-  diveWarTimer = 650 + Math.random() * 700;
+  diveWarTimer = 700 + Math.random() * 800;
   diveFrame = 0;
 
   state.year = data.year;
@@ -389,10 +442,10 @@ function resizeDiveCanvas() {
 }
 
 function makeDiveName(sex) {
-  const m = ["Marcus","Lucius","Gaius","Titus","Quintus","Appius","Publius"];
-  const f = ["Julia","Livia","Cornelia","Aurelia","Octavia","Flavia","Claudia"];
-  const last = ["Maximus","Severus","Varus","Cato","Flaccus","Rufus","Nero"];
-  return (sex === "M" ? m : f)[Math.floor(Math.random()*7)] + " " + last[Math.floor(Math.random()*7)];
+  const m = ["Marcus","Lucius","Gaius","Titus","Quintus","Appius","Publius","Decimus"];
+  const f = ["Julia","Livia","Cornelia","Aurelia","Octavia","Flavia","Claudia","Lucia"];
+  const last = ["Maximus","Severus","Varus","Cato","Flaccus","Rufus","Nero","Gallus"];
+  return (sex === "M" ? m : f)[Math.floor(Math.random()*8)] + " " + last[Math.floor(Math.random()*8)];
 }
 
 function generateDiveScene(data) {
@@ -405,54 +458,81 @@ function generateDiveScene(data) {
   const w = window.innerWidth;
   const h = window.innerHeight;
 
-  for (let i = 0; i < 13; i++) {
+  // More houses
+  for (let i = 0; i < 16; i++) {
     diveBuildings.push({
-      x: 90 + Math.random() * (w - 200),
-      y: 140 + Math.random() * (h - 320),
-      w: 42 + Math.random() * 45,
-      h: 36 + Math.random() * 35,
+      x: 70 + Math.random() * (w - 180),
+      y: 130 + Math.random() * (h - 300),
+      w: 40 + Math.random() * 42,
+      h: 34 + Math.random() * 32,
       type: "house", owner: null
     });
   }
 
+  // One hospital
+  diveBuildings.push({
+    x: w * 0.72,
+    y: h * 0.28,
+    w: 70,
+    h: 48,
+    type: "hospital",
+    owner: null
+  });
+
+  // Landmarks
   if (data.landmarks === "egypt") {
-    diveBuildings.push({ x: w*0.12, y: h*0.32, w: 100, h: 80, type: "pyramid", owner: null });
-    diveBuildings.push({ x: w*0.26, y: h*0.40, w: 70, h: 55, type: "pyramid", owner: null });
-    diveBuildings.push({ x: w*0.58, y: h*0.52, w: 75, h: 38, type: "sphinx", owner: null });
+    diveBuildings.push({ x: w*0.1, y: h*0.3, w: 95, h: 75, type: "pyramid", owner: null });
+    diveBuildings.push({ x: w*0.24, y: h*0.38, w: 65, h: 50, type: "pyramid", owner: null });
+    diveBuildings.push({ x: w*0.55, y: h*0.5, w: 70, h: 35, type: "sphinx", owner: null });
   } else if (data.landmarks === "roman" || data.landmarks === "greece") {
-    diveBuildings.push({ x: w*0.38, y: h*0.28, w: 120, h: 55, type: "temple", owner: null });
+    diveBuildings.push({ x: w*0.36, y: h*0.26, w: 115, h: 52, type: "temple", owner: null });
   }
 
-  const treeCount = data.landmarks === "egypt" ? 7 : 20;
+  // Trees
+  const treeCount = data.landmarks === "egypt" ? 9 : 24;
   for (let i = 0; i < treeCount; i++) {
     diveTrees.push({
       x: 40 + Math.random() * (w - 80),
-      y: 120 + Math.random() * (h - 240),
-      size: 13 + Math.random() * 12,
+      y: 120 + Math.random() * (h - 230),
+      size: 12 + Math.random() * 13,
       health: 100
     });
   }
 
-  for (let i = 0; i < 40; i++) {
+  // MANY more adults + forced builders + healers
+  for (let i = 0; i < 65; i++) {
     const sex = Math.random() < 0.55 ? "M" : "F";
     let role;
-    if (sex === "M" && Math.random() < 0.35) role = "Builder";
-    else {
-      const list = sex === "M" ? data.maleRoles : data.femaleRoles;
-      role = list[Math.floor(Math.random() * list.length)];
+    const r = Math.random();
+    if (sex === "M") {
+      if (r < 0.32) role = "Builder";
+      else if (r < 0.42) role = "Healer";
+      else {
+        const list = data.maleRoles;
+        role = list[Math.floor(Math.random() * list.length)];
+      }
+    } else {
+      if (r < 0.18) role = "Healer";
+      else {
+        const list = data.femaleRoles;
+        role = list[Math.floor(Math.random() * list.length)];
+      }
     }
 
     const p = {
-      x: 80 + Math.random() * (w - 160),
-      y: 160 + Math.random() * (h - 300),
+      x: 60 + Math.random() * (w - 120),
+      y: 150 + Math.random() * (h - 280),
       sex, type: "adult", role,
       name: makeDiveName(sex),
-      age: 18 + Math.floor(Math.random() * 34),
+      age: 17 + Math.floor(Math.random() * 38),
       spouse: null, children: 0, married: false,
       glowTimer: 0, house: null,
-      hunger: 60 + Math.random() * 35,
-      thirst: 60 + Math.random() * 35,
-      health: 78 + Math.random() * 20,
+      hunger: 50 + Math.random() * 45,
+      thirst: 50 + Math.random() * 45,
+      health: 65 + Math.random() * 30,
+      disease: 0,
+      calledHelp: false,
+      helpPulse: 0,
       state: "idle",
       target: null,
       carry: null,
@@ -460,41 +540,44 @@ function generateDiveScene(data) {
       progress: 0,
       maxProgress: 0,
       vx: 0, vy: 0,
-      idleTimer: 25 + Math.random() * 70
+      idleTimer: 15 + Math.random() * 50
     };
 
     const free = diveBuildings.find(b => b.type === "house" && !b.owner);
-    if (free && Math.random() < 0.42) {
+    if (free && Math.random() < 0.38) {
       free.owner = p;
       p.house = free;
     }
 
     if (["Legionary","Soldier","Guard"].includes(role)) {
-      p.x = w * 0.68 + (Math.random()-0.5)*85;
-      p.y = h * 0.62 + (Math.random()-0.5)*55;
+      p.x = w * 0.7 + (Math.random()-0.5)*90;
+      p.y = h * 0.6 + (Math.random()-0.5)*60;
     }
 
     divePeople.push(p);
   }
 
+  // More children
+  for (let i = 0; i < 18; i++) {
+    const sex = Math.random() < 0.5 ? "M" : "F";
+    divePeople.push({
+      x: 60 + Math.random()*(w-120), y: 150 + Math.random()*(h-280),
+      sex, type: "child", role: "Child", name: "Young " + (sex==="M"?"Boy":"Girl"),
+      age: 4 + Math.floor(Math.random()*10), spouse:null, children:0, married:false,
+      glowTimer:0, house:null, hunger:75, thirst:75, health:88, disease:0,
+      state:"idle", carry:null, toolAngle:0, progress:0,
+      vx:0, vy:0, idleTimer: 20+Math.random()*60
+    });
+  }
+
+  // Babies
   for (let i = 0; i < 10; i++) {
     const sex = Math.random() < 0.5 ? "M" : "F";
     divePeople.push({
-      x: 80 + Math.random()*(w-160), y: 160 + Math.random()*(h-300),
-      sex, type: "child", role: "Child", name: "Young " + (sex==="M"?"Boy":"Girl"),
-      age: 3+Math.floor(Math.random()*9), spouse:null, children:0, married:false,
-      glowTimer:0, house:null, hunger:80, thirst:80, health:90,
-      state:"idle", carry:null, toolAngle:0, progress:0,
-      vx:0, vy:0, idleTimer: 25+Math.random()*80
-    });
-  }
-  for (let i = 0; i < 6; i++) {
-    const sex = Math.random() < 0.5 ? "M" : "F";
-    divePeople.push({
-      x: 80 + Math.random()*(w-160), y: 160 + Math.random()*(h-300),
+      x: 60 + Math.random()*(w-120), y: 150 + Math.random()*(h-280),
       sex, type: "baby", role: "Baby", name: sex==="M"?"Baby Boy":"Baby Girl",
-      age:0, spouse:null, children:0, married:false, glowTimer:0, house:null,
-      hunger:90, thirst:90, health:95,
+      age: Math.random()*2, spouse:null, children:0, married:false, glowTimer:0, house:null,
+      hunger:90, thirst:90, health:95, disease:0,
       state:"idle", carry:null, toolAngle:0, progress:0, vx:0, vy:0, idleTimer:999
     });
   }
@@ -536,8 +619,14 @@ function drawDiveScene() {
       ctx.fillRect(b.x, b.y, b.w, b.h);
       ctx.fillStyle = "#c4b5fd";
       for (let c=0; c<5; c++) ctx.fillRect(b.x+12+c*20, b.y-16, 9, 16);
+    } else if (b.type === "hospital") {
+      ctx.fillStyle = "#f87171";
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 22px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("+", b.x + b.w/2, b.y + b.h/2 + 8);
     } else {
-      // House – slightly warmer color if occupied
       ctx.fillStyle = b.owner ? "#a8b4c4" : "#94a3b8";
       ctx.fillRect(b.x, b.y, b.w, b.h);
       ctx.fillStyle = "#64748b";
@@ -564,7 +653,7 @@ function drawDiveScene() {
     }
   });
 
-  // Construction sites
+  // Construction
   diveConstruction.forEach(c => {
     ctx.strokeStyle = "#fbbf24";
     ctx.lineWidth = 2;
@@ -593,42 +682,53 @@ function drawDiveScene() {
     ctx.fill();
   });
 
-  // ===== WEATHER VISUALS =====
-  if (weather.rain > 0.12) {
-    ctx.strokeStyle = `rgba(147,197,253,${weather.rain * 0.5})`;
-    ctx.lineWidth = 1.2;
-    for (let i = 0; i < weather.rain * 70; i++) {
+  // ===== RAIN + SNOW =====
+  if (weather.rain > 0.1) {
+    ctx.strokeStyle = `rgba(147,197,253,${weather.rain * 0.55})`;
+    ctx.lineWidth = 1.3;
+    for (let i = 0; i < weather.rain * 90; i++) {
       const x = Math.random() * w;
       const y = Math.random() * h;
       ctx.beginPath();
       ctx.moveTo(x, y);
-      ctx.lineTo(x - 1.5, y + 9);
+      ctx.lineTo(x - 1.8, y + 11);
       ctx.stroke();
     }
   }
-  if (weather.cold > 0.5) {
-    ctx.fillStyle = `rgba(147,197,253,${(weather.cold - 0.5) * 0.22})`;
+  if (weather.snow > 0.1) {
+    ctx.fillStyle = `rgba(255,255,255,${weather.snow * 0.7})`;
+    for (let i = 0; i < weather.snow * 70; i++) {
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+      ctx.beginPath();
+      ctx.arc(x, y, 1.8 + Math.random(), 0, Math.PI*2);
+      ctx.fill();
+    }
+  }
+  if (weather.cold > 0.55) {
+    ctx.fillStyle = `rgba(147,197,253,${(weather.cold-0.55)*0.25})`;
     ctx.fillRect(0, 0, w, h);
   }
-  if (weather.heat > 0.7) {
-    ctx.fillStyle = `rgba(251,191,36,${(weather.heat - 0.7) * 0.14})`;
+  if (weather.heat > 0.75) {
+    ctx.fillStyle = `rgba(251,191,36,${(weather.heat-0.75)*0.15})`;
     ctx.fillRect(0, 0, w, h);
   }
 
-  // Season + weather text
-  ctx.fillStyle = "rgba(255,255,255,0.8)";
+  // Season text
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
   ctx.font = "13px sans-serif";
   ctx.textAlign = "right";
-  let weatherText = weather.season.charAt(0).toUpperCase() + weather.season.slice(1);
-  if (weather.rain > 0.35) weatherText += " • Raining";
-  if (weather.cold > 0.6) weatherText += " • Cold";
-  if (weather.heat > 0.75) weatherText += " • Hot";
-  ctx.fillText(weatherText, w - 18, 38);
+  let wText = weather.season.charAt(0).toUpperCase() + weather.season.slice(1);
+  if (weather.snow > 0.25) wText += " • Snowing";
+  else if (weather.rain > 0.3) wText += " • Raining";
+  if (weather.cold > 0.6) wText += " • Cold";
+  if (weather.heat > 0.78) wText += " • Hot";
+  ctx.fillText(wText, w - 16, 36);
 
-  // War trigger
+  // War
   diveWarTimer--;
   if (diveWarTimer <= 0) {
-    diveWarTimer = 750 + Math.random() * 900;
+    diveWarTimer = 800 + Math.random() * 1000;
     const fighters = divePeople.filter(p => p.type === "adult" && ["Legionary","Soldier","Guard"].includes(p.role) && p.state === "idle");
     if (fighters.length >= 2) {
       const a = fighters[Math.floor(Math.random()*fighters.length)];
@@ -636,52 +736,54 @@ function drawDiveScene() {
       if (a !== b) {
         a.state = "fighting"; b.state = "fighting";
         a.target = b; b.target = a;
-        a.progress = 0; a.maxProgress = 140;
-        b.progress = 0; b.maxProgress = 140;
+        a.progress = 0; a.maxProgress = 130;
+        b.progress = 0; b.maxProgress = 130;
       }
     }
   }
 
-  // Tick survival + weather
   if (diveFrame % 3 === 0) {
     updateWeather();
     applySurvival();
   }
 
-  // People
+  // People logic + draw
   for (let i = 0; i < divePeople.length; i++) {
     const p = divePeople[i];
     if (p.state === "dead") continue;
 
     if (p.type === "adult") {
+      // Idle decisions – builders are aggressive
       if (p.state === "idle") {
         p.idleTimer--;
         if (p.idleTimer <= 0) {
-          if (p.role === "Woodcutter" || (p.role === "Builder" && Math.random() < 0.4)) {
-            const tree = diveTrees.find(t => t.health > 28);
-            if (tree) {
+          if (p.role === "Builder" || p.role === "Woodcutter") {
+            const tree = diveTrees.find(t => t.health > 25);
+            if (tree && Math.random() < 0.7) {
               p.state = "chopping";
               p.target = tree;
               p.progress = 0;
-              p.maxProgress = 105 + Math.random() * 45;
-            } else p.idleTimer = 45;
+              p.maxProgress = 95 + Math.random() * 40;
+            } else if (p.role === "Builder") {
+              tryStartBuilding(p, data);
+              if (p.state === "idle") p.idleTimer = 20;
+            } else p.idleTimer = 30;
           } else if (p.role === "Stonehauler") {
             p.state = "mining";
-            p.target = { x: 120 + Math.random()*(w-240), y: 180 + Math.random()*(h-360) };
+            p.target = { x: 100 + Math.random()*(w-200), y: 160 + Math.random()*(h-320) };
             p.progress = 0;
-            p.maxProgress = 115 + Math.random() * 45;
+            p.maxProgress = 100 + Math.random() * 40;
           } else if (p.role === "Farmer") {
             p.state = "farming";
-            p.target = { x: 100 + Math.random()*(w-200), y: 170 + Math.random()*(h-340) };
+            p.target = { x: 90 + Math.random()*(w-180), y: 160 + Math.random()*(h-320) };
             p.progress = 0;
-            p.maxProgress = 90 + Math.random() * 40;
-          } else if (p.role === "Builder") {
-            tryStartBuilding(p, data);
-            if (p.state === "idle") p.idleTimer = 35 + Math.random() * 40;
+            p.maxProgress = 85 + Math.random() * 35;
+          } else if (p.role === "Healer") {
+            p.idleTimer = 40 + Math.random() * 40;
           } else {
-            p.vx = (Math.random()-0.5) * 0.11;
-            p.vy = (Math.random()-0.5) * 0.11;
-            p.idleTimer = 60 + Math.random() * 80;
+            p.vx = (Math.random()-0.5) * 0.1;
+            p.vy = (Math.random()-0.5) * 0.1;
+            p.idleTimer = 50 + Math.random() * 70;
           }
         }
       }
@@ -690,17 +792,69 @@ function drawDiveScene() {
       if (p.state === "seekingShelter" && p.house) {
         const hx = p.house.x + p.house.w / 2;
         const hy = p.house.y + p.house.h / 2;
-        const dist = Math.hypot(p.x - hx, p.y - hy);
-        if (dist > 20) {
+        if (Math.hypot(p.x - hx, p.y - hy) > 18) {
           steerAround(p, hx, hy);
         } else {
           p.vx = 0; p.vy = 0;
           p.state = "idle";
-          p.idleTimer = 80;
+          p.idleTimer = 90;
         }
       }
 
-      // Other actions
+      // Healer responding
+      if (p.state === "responding" && p.target) {
+        const t = p.target;
+        if (t.state === "dead") {
+          p.state = "idle";
+          p.target = null;
+        } else {
+          const dist = Math.hypot(p.x - t.x, p.y - t.y);
+          if (dist > 22) {
+            steerAround(p, t.x, t.y);
+          } else {
+            // Pick up and take to hospital
+            t.state = "beingCarried";
+            p.state = "carrying";
+            p.carryTarget = t;
+            const hospital = diveBuildings.find(b => b.type === "hospital");
+            p.target = hospital || t;
+          }
+        }
+      }
+
+      // Carrying to hospital
+      if (p.state === "carrying" && p.carryTarget) {
+        const hospital = diveBuildings.find(b => b.type === "hospital");
+        if (hospital) {
+          const hx = hospital.x + hospital.w / 2;
+          const hy = hospital.y + hospital.h / 2;
+          const dist = Math.hypot(p.x - hx, p.y - hy);
+          // Move the carried person with the healer
+          p.carryTarget.x = p.x + 8;
+          p.carryTarget.y = p.y;
+          if (dist > 25) {
+            steerAround(p, hx, hy);
+          } else {
+            // Delivered – heal
+            p.carryTarget.health = 90;
+            p.carryTarget.disease = 0;
+            p.carryTarget.hunger = Math.max(p.carryTarget.hunger, 50);
+            p.carryTarget.thirst = Math.max(p.carryTarget.thirst, 50);
+            p.carryTarget.state = "idle";
+            p.carryTarget.calledHelp = false;
+            p.carryTarget = null;
+            p.state = "idle";
+            p.target = null;
+            p.idleTimer = 60;
+          }
+        } else {
+          p.state = "idle";
+          if (p.carryTarget) p.carryTarget.state = "idle";
+          p.carryTarget = null;
+        }
+      }
+
+      // Normal work actions
       if (p.target && ["chopping","mining","farming","building","fighting","eating"].includes(p.state)) {
         let goalX = p.x, goalY = p.y;
         if (p.state === "chopping" && p.target.health !== undefined) {
@@ -713,42 +867,40 @@ function drawDiveScene() {
         }
 
         const dist = Math.hypot(p.x - goalX, p.y - goalY);
-        if (dist > 20) {
+        if (dist > 18) {
           steerAround(p, goalX, goalY);
         } else {
           p.vx = 0; p.vy = 0;
 
           if (p.state === "chopping") {
-            p.toolAngle = Math.sin(diveFrame * 0.22) * 0.9;
+            p.toolAngle = Math.sin(diveFrame * 0.23) * 0.9;
             p.progress++;
             if (p.progress >= p.maxProgress) {
               p.target.health = 0;
               diveResources.push({ x: p.target.x, y: p.target.y, type: "wood" });
-              diveResources.push({ x: p.target.x+8, y: p.target.y+3, type: "wood" });
-              p.state = "idle"; p.target = null; p.idleTimer = 20;
+              diveResources.push({ x: p.target.x+7, y: p.target.y+3, type: "wood" });
+              p.state = "idle"; p.target = null; p.idleTimer = 15;
             }
           } else if (p.state === "mining") {
             p.toolAngle = Math.sin(diveFrame * 0.2) * 0.85;
             p.progress++;
             if (p.progress >= p.maxProgress) {
               diveResources.push({ x: p.x, y: p.y, type: "stone" });
-              diveResources.push({ x: p.x+7, y: p.y+4, type: "stone" });
-              p.state = "idle"; p.target = null; p.idleTimer = 30;
+              diveResources.push({ x: p.x+6, y: p.y+4, type: "stone" });
+              p.state = "idle"; p.target = null; p.idleTimer = 25;
             }
           } else if (p.state === "farming") {
             p.toolAngle = Math.sin(diveFrame * 0.17) * 0.7;
             p.progress++;
             if (p.progress >= p.maxProgress) {
               diveTrees.push({
-                x: p.x + (Math.random()-0.5)*22,
-                y: p.y + (Math.random()-0.5)*22,
-                size: 7 + Math.random()*5,
+                x: p.x + (Math.random()-0.5)*20,
+                y: p.y + (Math.random()-0.5)*20,
+                size: 6 + Math.random()*5,
                 health: 100
               });
-              if (Math.random() < 0.45) {
-                diveResources.push({ x: p.x, y: p.y, type: "food" });
-              }
-              p.state = "idle"; p.target = null; p.idleTimer = 40;
+              if (Math.random() < 0.5) diveResources.push({ x: p.x, y: p.y, type: "food" });
+              p.state = "idle"; p.target = null; p.idleTimer = 30;
             }
           } else if (p.state === "building") {
             p.progress++;
@@ -760,29 +912,29 @@ function drawDiveScene() {
                 type: p.target.buildType, owner: null
               });
               diveConstruction = diveConstruction.filter(c => c !== p.target);
-              p.state = "idle"; p.target = null; p.idleTimer = 55;
+              p.state = "idle"; p.target = null; p.idleTimer = 45;
             }
           } else if (p.state === "fighting") {
             p.progress++;
             if (p.progress >= p.maxProgress) {
-              p.state = "idle"; p.target = null; p.idleTimer = 70;
+              p.state = "idle"; p.target = null; p.idleTimer = 60;
             }
           } else if (p.state === "eating") {
             p.progress++;
             if (p.progress >= p.maxProgress) {
-              p.hunger = Math.min(100, p.hunger + 50);
+              p.hunger = Math.min(100, p.hunger + 55);
               diveResources = diveResources.filter(r => r !== p.target);
-              p.state = "idle"; p.target = null; p.idleTimer = 25;
+              p.state = "idle"; p.target = null; p.idleTimer = 20;
             }
           }
         }
       }
 
-      // Homemakers prefer house
+      // Homemakers stay near house
       if ((p.role === "Homemaker" || p.role === "Childcare") && p.house && p.state === "idle") {
         const hx = p.house.x + p.house.w/2;
         const hy = p.house.y + p.house.h/2;
-        if (Math.hypot(p.x - hx, p.y - hy) > 45) {
+        if (Math.hypot(p.x - hx, p.y - hy) > 40) {
           steerAround(p, hx, hy);
         }
       }
@@ -790,17 +942,18 @@ function drawDiveScene() {
 
     p.x += p.vx;
     p.y += p.vy;
-    if (p.x < 40 || p.x > w-40) p.vx *= -1;
-    if (p.y < 130 || p.y > h-60) p.vy *= -1;
+    if (p.x < 35 || p.x > w-35) p.vx *= -1;
+    if (p.y < 120 || p.y > h-55) p.vy *= -1;
 
     if (p.glowTimer > 0) p.glowTimer--;
+    if (p.helpPulse > 0) p.helpPulse--;
 
     // Marriage
-    if (p.type === "adult" && !p.married && p.state === "idle" && Math.random() < 0.0005) {
+    if (p.type === "adult" && !p.married && p.state === "idle" && Math.random() < 0.00045) {
       for (let j = i+1; j < divePeople.length; j++) {
         const o = divePeople[j];
         if (o.type !== "adult" || o.married || o.sex === p.sex || o.state === "dead") continue;
-        if (Math.hypot(p.x-o.x, p.y-o.y) < 26 && Math.random() < 0.4) {
+        if (Math.hypot(p.x-o.x, p.y-o.y) < 24 && Math.random() < 0.4) {
           p.married = true; o.married = true;
           p.spouse = o.name; o.spouse = p.name;
           p.glowTimer = 90; o.glowTimer = 90;
@@ -808,14 +961,14 @@ function drawDiveScene() {
           if (house) {
             house.owner = p; p.house = house; o.house = house;
           }
-          if (Math.random() < 0.5) {
+          if (Math.random() < 0.55) {
             p.children++; o.children++;
             const bs = Math.random() < 0.5 ? "M" : "F";
             divePeople.push({
               x: (p.x+o.x)/2, y: (p.y+o.y)/2, sex: bs, type: "baby", role: "Baby",
               name: bs === "M" ? "Baby Boy" : "Baby Girl", age: 0,
               spouse: null, children: 0, married: false, glowTimer: 0, house,
-              hunger: 90, thirst: 90, health: 95,
+              hunger: 90, thirst: 90, health: 95, disease: 0,
               state: "idle", carry: null, toolAngle: 0, progress: 0,
               vx: 0, vy: 0, idleTimer: 999
             });
@@ -825,25 +978,34 @@ function drawDiveScene() {
       }
     }
 
-    // Draw person
+    // ===== DRAW =====
     if (p.type === "adult") {
       const color = p.sex === "M" ? "#3b82f6" : "#ec4899";
 
-      // Red pulse when low on needs
-      if (p.hunger < 22 || p.thirst < 22 || p.health < 35) {
-        ctx.fillStyle = "rgba(239,68,68,0.4)";
-        ctx.beginPath(); ctx.arc(p.x, p.y - 12, 15, 0, Math.PI*2); ctx.fill();
+      // Help pulse
+      if (p.helpPulse > 0) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y - 12, 16 + Math.sin(diveFrame*0.3)*3, 0, Math.PI*2);
+        ctx.strokeStyle = `rgba(239,68,68,${p.helpPulse/180})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
 
-      // Soft green when safely sheltered
+      // Low needs
+      if (p.hunger < 20 || p.thirst < 20 || p.health < 30) {
+        ctx.fillStyle = "rgba(239,68,68,0.4)";
+        ctx.beginPath(); ctx.arc(p.x, p.y - 12, 14, 0, Math.PI*2); ctx.fill();
+      }
+
+      // Sheltered
       if (isSheltered(p)) {
-        ctx.fillStyle = "rgba(34,197,94,0.2)";
-        ctx.beginPath(); ctx.arc(p.x, p.y - 12, 13, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "rgba(34,197,94,0.22)";
+        ctx.beginPath(); ctx.arc(p.x, p.y - 12, 12, 0, Math.PI*2); ctx.fill();
       }
 
       if (p.glowTimer > 0) {
         ctx.beginPath();
-        ctx.arc(p.x, p.y-12, 15, 0, Math.PI*2);
+        ctx.arc(p.x, p.y-12, 14, 0, Math.PI*2);
         ctx.fillStyle = `rgba(250,204,21,${p.glowTimer/90*0.5})`;
         ctx.fill();
       }
@@ -854,53 +1016,61 @@ function drawDiveScene() {
       ctx.fillRect(p.x-5, p.y-2, 3.5, 8);
       ctx.fillRect(p.x+1.5, p.y-2, 3.5, 8);
 
+      // Healer mark
+      if (p.role === "Healer") {
+        ctx.fillStyle = "#f87171";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("+", p.x, p.y - 28);
+      }
+
       // Tools
       ctx.save();
       ctx.translate(p.x, p.y-8);
       if (p.state === "chopping") {
         ctx.rotate(p.toolAngle);
         ctx.fillStyle = "#78350f";
-        ctx.fillRect(6, -2, 16, 4);
+        ctx.fillRect(6, -2, 15, 4);
         ctx.fillStyle = "#a1a1aa";
-        ctx.fillRect(18, -6, 8, 10);
+        ctx.fillRect(17, -6, 8, 10);
       } else if (p.state === "mining") {
         ctx.rotate(p.toolAngle);
         ctx.fillStyle = "#44403c";
-        ctx.fillRect(5, -2, 15, 4);
+        ctx.fillRect(5, -2, 14, 4);
         ctx.fillStyle = "#a8a29e";
-        ctx.fillRect(16, -7, 9, 12);
+        ctx.fillRect(15, -7, 9, 12);
       } else if (p.state === "farming") {
         ctx.rotate(p.toolAngle * 0.7);
         ctx.fillStyle = "#78716c";
-        ctx.fillRect(5, -1, 14, 3);
+        ctx.fillRect(5, -1, 13, 3);
         ctx.fillStyle = "#a8a29e";
-        ctx.beginPath(); ctx.moveTo(16,-4); ctx.lineTo(22,0); ctx.lineTo(16,4); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(15,-4); ctx.lineTo(21,0); ctx.lineTo(15,4); ctx.fill();
       } else if (p.state === "fighting") {
         ctx.fillStyle = "#94a3b8";
-        ctx.beginPath(); ctx.arc(-11, 0, 7, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 2.5;
-        ctx.beginPath(); ctx.moveTo(7, 2); ctx.lineTo(17, -14); ctx.stroke();
+        ctx.beginPath(); ctx.arc(-10, 0, 6.5, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "#e2e8f0"; ctx.lineWidth = 2.3;
+        ctx.beginPath(); ctx.moveTo(6, 2); ctx.lineTo(15, -13); ctx.stroke();
       }
       ctx.restore();
 
       if (p.state === "building" && p.target) {
         ctx.strokeStyle = "#fbbf24";
         ctx.lineWidth = 2;
-        ctx.strokeRect(p.x-20, p.y-42, 40, 18);
+        ctx.strokeRect(p.x-18, p.y-40, 36, 16);
         ctx.fillStyle = "rgba(0,0,0,0.65)";
-        ctx.fillRect(p.x-18, p.y-40, 36, 14);
+        ctx.fillRect(p.x-16, p.y-38, 32, 12);
         ctx.fillStyle = "#fff";
-        ctx.font = "11px sans-serif";
+        ctx.font = "10px sans-serif";
         ctx.textAlign = "center";
         const left = Math.max(0, Math.ceil((p.maxProgress - p.progress)/60));
         ctx.fillText(left + "s", p.x, p.y-28);
       }
     } else if (p.type === "child") {
       ctx.fillStyle = p.sex === "M" ? "#60a5fa" : "#f472b6";
-      ctx.beginPath(); ctx.arc(p.x, p.y, 4.8, 0, Math.PI*2); ctx.fill();
-    } else {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 4.6, 0, Math.PI*2); ctx.fill();
+    } else if (p.type === "baby") {
       ctx.fillStyle = p.sex === "M" ? "#93c5fd" : "#f9a8d4";
-      ctx.beginPath(); ctx.arc(p.x, p.y, 3.2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3.1, 0, Math.PI*2); ctx.fill();
     }
   }
 }
@@ -909,7 +1079,7 @@ function tryStartBuilding(builder, data) {
   const woods = diveResources.filter(r => r.type === "wood");
   const stones = diveResources.filter(r => r.type === "stone");
 
-  const wantPyramid = data.landmarks === "egypt" && Math.random() < 0.32;
+  const wantPyramid = data.landmarks === "egypt" && Math.random() < 0.28;
   const needWood = wantPyramid ? 0 : 7;
   const needStone = wantPyramid ? 15 : 2;
 
@@ -924,12 +1094,12 @@ function tryStartBuilding(builder, data) {
     }
 
     const site = {
-      x: 110 + Math.random() * (window.innerWidth - 240),
-      y: 160 + Math.random() * (window.innerHeight - 340),
-      w: wantPyramid ? 75 + Math.random()*35 : 48 + Math.random()*28,
-      h: wantPyramid ? 60 + Math.random()*30 : 40 + Math.random()*22,
+      x: 100 + Math.random() * (window.innerWidth - 220),
+      y: 150 + Math.random() * (window.innerHeight - 320),
+      w: wantPyramid ? 70 + Math.random()*30 : 46 + Math.random()*26,
+      h: wantPyramid ? 55 + Math.random()*25 : 38 + Math.random()*20,
       progress: 0,
-      max: wantPyramid ? 360 : 200,
+      max: wantPyramid ? 340 : 190,
       buildType: wantPyramid ? "pyramid" : "house"
     };
     diveConstruction.push(site);
@@ -946,15 +1116,15 @@ function showDivePersonInfo(p) {
   const kids = p.children > 0 ? `${p.children} child${p.children > 1 ? "ren" : ""}` : "No children";
   const typeLabel = p.type === "adult" ? "Adult" : p.type === "child" ? "Child" : "Baby";
   const color = p.sex === "M" ? "#3b82f6" : "#ec4899";
-  const houseText = p.house ? (isSheltered(p) ? "Inside house ✓" : "Has a house") : "No house";
+  const houseText = p.house ? (isSheltered(p) ? "Inside house ✓" : "Has house") : "No house";
   const work = p.state !== "idle" ? ` • ${p.state}` : "";
-  const needs = p.type === "adult" ? ` • Hunger ${Math.round(p.hunger)} • Thirst ${Math.round(p.thirst)} • Health ${Math.round(p.health)}` : "";
+  const needs = p.type === "adult" ? ` • H:${Math.round(p.hunger)} T:${Math.round(p.thirst)} HP:${Math.round(p.health)}` : "";
 
   diveInfoBar.innerHTML = `
     <div>
       <strong style="color:${color}">${p.name}</strong>
-      &nbsp;•&nbsp; ${typeLabel} &nbsp;•&nbsp; Age ${p.age}
-      &nbsp;•&nbsp; Role: <strong>${p.role}</strong>
+      &nbsp;•&nbsp; ${typeLabel} &nbsp;•&nbsp; Age ${Math.floor(p.age)}
+      &nbsp;•&nbsp; <strong>${p.role}</strong>
       &nbsp;•&nbsp; ${status} &nbsp;•&nbsp; ${kids} &nbsp;•&nbsp; ${houseText}${work}${needs}
     </div>
     <button onclick="document.getElementById('diveInfoBar').style.display='none'"
@@ -980,7 +1150,7 @@ document.addEventListener("click", (e) => {
   for (const p of divePeople) {
     if (p.state === "dead") continue;
     const dist = Math.hypot(p.x - mx, p.y - my);
-    const hit = p.type === "adult" ? 18 : p.type === "child" ? 12 : 9;
+    const hit = p.type === "adult" ? 17 : p.type === "child" ? 11 : 8;
     if (dist < hit) { showDivePersonInfo(p); break; }
   }
 });
@@ -998,25 +1168,26 @@ window.zoomToHistorical = function(name) {
 
 window.addHumans = function() {
   if (cityDiveActive) {
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 8; i++) {
       const sex = Math.random() < 0.5 ? "M" : "F";
-      const role = sex === "M" ? (Math.random() < 0.4 ? "Builder" : "Farmer") : "Homemaker";
+      const role = sex === "M" ? (Math.random() < 0.45 ? "Builder" : Math.random() < 0.6 ? "Healer" : "Farmer") : (Math.random() < 0.25 ? "Healer" : "Homemaker");
       divePeople.push({
-        x: 100 + Math.random() * (window.innerWidth - 200),
-        y: 160 + Math.random() * (window.innerHeight - 300),
+        x: 90 + Math.random() * (window.innerWidth - 180),
+        y: 150 + Math.random() * (window.innerHeight - 280),
         sex, type: "adult", role,
         name: makeDiveName(sex),
-        age: 18 + Math.floor(Math.random()*28),
+        age: 18 + Math.floor(Math.random()*30),
         spouse: null, children: 0, married: false,
         glowTimer: 0, house: null,
-        hunger: 70 + Math.random()*25, thirst: 70 + Math.random()*25, health: 85,
+        hunger: 65 + Math.random()*30, thirst: 65 + Math.random()*30, health: 80,
+        disease: 0, calledHelp: false, helpPulse: 0,
         state: "idle", target: null, carry: null,
         toolAngle: 0, progress: 0, maxProgress: 0,
-        vx: 0, vy: 0, idleTimer: 12 + Math.random()*25
+        vx: 0, vy: 0, idleTimer: 8 + Math.random()*20
       });
     }
   } else if (typeof randomLandPosition === "function") {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 12; i++) {
       const pos = randomLandPosition();
       state.humans.push(new Human(pos.lat, pos.lng));
     }
@@ -1028,11 +1199,11 @@ window.addHumans = function() {
 
 window.addTrees = function() {
   if (cityDiveActive) {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 6; i++) {
       diveTrees.push({
-        x: 50 + Math.random() * (window.innerWidth - 100),
-        y: 130 + Math.random() * (window.innerHeight - 250),
-        size: 12 + Math.random()*11,
+        x: 40 + Math.random() * (window.innerWidth - 80),
+        y: 120 + Math.random() * (window.innerHeight - 240),
+        size: 11 + Math.random()*12,
         health: 100
       });
     }
@@ -1044,15 +1215,15 @@ window.addTrees = function() {
 
 window.addStone = function() {
   if (cityDiveActive) {
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 10; i++) {
       diveResources.push({
-        x: 80 + Math.random() * (window.innerWidth - 160),
-        y: 150 + Math.random() * (window.innerHeight - 280),
+        x: 70 + Math.random() * (window.innerWidth - 140),
+        y: 140 + Math.random() * (window.innerHeight - 260),
         type: "stone"
       });
     }
   } else {
-    state.resources.stone += 1400;
+    state.resources.stone += 1500;
     if (typeof logEvent === "function") logEvent("discovery", playerName + " created stone.");
     updateUI();
   }
@@ -1060,15 +1231,15 @@ window.addStone = function() {
 
 window.addWood = function() {
   if (cityDiveActive) {
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 8; i++) {
       diveResources.push({
-        x: 80 + Math.random() * (window.innerWidth - 160),
-        y: 150 + Math.random() * (window.innerHeight - 280),
+        x: 70 + Math.random() * (window.innerWidth - 140),
+        y: 140 + Math.random() * (window.innerHeight - 260),
         type: "wood"
       });
     }
   } else {
-    state.resources.wood += 1600;
+    state.resources.wood += 1700;
     if (typeof logEvent === "function") logEvent("discovery", playerName + " created wood.");
     updateUI();
   }
@@ -1076,15 +1247,15 @@ window.addWood = function() {
 
 window.addFood = function() {
   if (cityDiveActive) {
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 7; i++) {
       diveResources.push({
-        x: 80 + Math.random() * (window.innerWidth - 160),
-        y: 150 + Math.random() * (window.innerHeight - 280),
+        x: 70 + Math.random() * (window.innerWidth - 140),
+        y: 140 + Math.random() * (window.innerHeight - 260),
         type: "food"
       });
     }
   } else {
-    state.resources.food += 2200;
+    state.resources.food += 2300;
     if (typeof logEvent === "function") logEvent("discovery", playerName + " bestowed food.");
     updateUI();
   }
@@ -1096,7 +1267,7 @@ function renderEvents() {
   const el = document.getElementById("eventLog");
   if (!el) return;
   let html = "";
-  state.events.slice(0, 28).forEach(e => {
+  state.events.slice(0, 26).forEach(e => {
     const y = e.year < 0 ? Math.abs(e.year) + " BCE" : e.year + " CE";
     html += `<div class="event ${e.type}"><span class="year">${y}</span><span class="msg">${e.msg}</span></div>`;
   });
@@ -1134,7 +1305,7 @@ function updateUI() {
   });
   document.getElementById("techList").innerHTML = techHtml;
 
-  const alive = state.humans.filter(h => h.alive).sort((a,b) => b.age - a.age).slice(0, 16);
+  const alive = state.humans.filter(h => h.alive).sort((a,b) => b.age - a.age).slice(0, 15);
   let peopleHtml = alive.length === 0 ? '<div style="color:var(--muted)">No living people.</div>' : "";
   alive.forEach(h => {
     const color = h.sex === "M" ? "#3b82f6" : "#ec4899";
